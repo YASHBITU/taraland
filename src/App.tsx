@@ -8,11 +8,13 @@ import { GlassCard } from './components/ui/GlassCard';
 import { TerminalChart } from './components/terminal/TerminalChart';
 import { MarketTicker } from './components/terminal/MarketTicker';
 import Engine from './components/terminal/Engine';
+import VisionEngine from './components/terminal/VisionEngine';
 
 export default function App() {
   const { assets, pulse } = useMarketData();
   const [activeMarketData, setActiveMarketData] = useState(null);
   const [isEngineActive, setIsEngineActive] = useState(false);
+  const [isVisionEngineActive, setIsVisionEngineActive] = useState(false);
   const [activeTimeframe, setActiveTimeframe] = useState('M1');
   const [carouselIdx, setCarouselIdx] = useState(1);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -97,9 +99,14 @@ export default function App() {
             <a href="#faq" className="hover:text-gold-light transition-colors">FAQ</a>
           </div>
 
-          <button onClick={() => setIsEngineActive(true)} className="shimmer-sweep px-4 py-2 lg:px-6 lg:py-2.5 rounded-full bg-gradient-gold text-bg-primary font-bold text-xs lg:text-sm tracking-widest hover:shadow-[0_0_20px_rgba(198,168,79,0.3)] transition-all duration-300">
-            LAUNCH
-          </button>
+          <div className="flex items-center gap-2 lg:gap-4">
+            <button onClick={() => setIsVisionEngineActive(true)} className="px-4 py-2 lg:px-6 lg:py-2.5 rounded-full border border-gold-dark/50 text-gold-light hover:bg-gold-dark/10 font-bold text-[10px] lg:text-xs tracking-widest transition-all duration-300">
+              MANUAL VISION
+            </button>
+            <button onClick={() => setIsEngineActive(true)} className="shimmer-sweep px-4 py-2 lg:px-6 lg:py-2.5 rounded-full bg-gradient-gold text-bg-primary font-bold text-xs lg:text-sm tracking-widest hover:shadow-[0_0_20px_rgba(198,168,79,0.3)] transition-all duration-300">
+              AUTO DASHBOARD
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -134,13 +141,13 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-3 lg:gap-4 mb-12 lg:mb-16 w-full lg:w-auto">
               <button
                 onClick={() => setIsEngineActive(true)}
-                className="shimmer-sweep px-6 py-3 lg:px-8 lg:py-4 rounded-full bg-gradient-gold text-bg-primary font-bold tracking-widest flex items-center gap-2 hover:shadow-[0_0_20px_rgba(198,168,79,0.3)] transition-shadow duration-300 group flex-1 lg:flex-none justify-center lg:justify-start text-sm lg:text-base"
+                className="shimmer-sweep px-6 py-3 lg:px-8 lg:py-4 rounded-full bg-gradient-gold text-bg-primary font-bold tracking-widest flex items-center gap-2 hover:shadow-[0_0_20px_rgba(198,168,79,0.3)] transition-shadow duration-300 group flex-1 lg:flex-none justify-center lg:justify-start text-sm lg:text-[13px]"
               >
-                JOIN THE ELITE
+                AUTO DASHBOARD
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </button>
-              <button className="px-6 py-3 lg:px-8 lg:py-4 rounded-full border border-white/10 hover:bg-white/5 hover:border-gold-light/40 text-white font-medium tracking-wide transition-colors duration-300 flex-1 lg:flex-none text-center text-sm lg:text-base">
-                VIEW AUDIT
+              <button onClick={() => setIsVisionEngineActive(true)} className="px-6 py-3 lg:px-8 lg:py-4 rounded-full border border-gold-dark/50 hover:bg-gold-dark/10 text-gold-light font-medium tracking-wide transition-colors duration-300 flex-1 lg:flex-none text-center text-sm lg:text-[13px] flex items-center justify-center gap-2">
+                MANUAL VISION
               </button>
             </div>
 
@@ -384,12 +391,20 @@ export default function App() {
             <p className="text-text-secondary text-base md:text-lg lg:text-2xl mb-10 lg:mb-12 leading-relaxed font-light max-w-3xl">
               Limited institutional seats available for Q4. Secure your allocation and gain access to the most sophisticated gold trading architecture ever deployed.
             </p>
-            <button
-              onClick={() => setIsEngineActive(true)}
-              className="shimmer-sweep px-8 py-4 lg:px-12 lg:py-6 rounded-full bg-gradient-gold text-bg-primary font-bold tracking-widest text-sm lg:text-lg hover:shadow-[0_0_30px_rgba(198,168,79,0.4)] transition-all duration-300"
-            >
-              APPLY FOR ACCESS
-            </button>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setIsEngineActive(true)}
+                className="shimmer-sweep px-8 py-4 lg:px-12 lg:py-6 rounded-full bg-gradient-gold text-bg-primary font-bold tracking-widest text-sm lg:text-lg hover:shadow-[0_0_30px_rgba(198,168,79,0.4)] transition-all duration-300"
+              >
+                AUTO ENGINE
+              </button>
+              <button
+                onClick={() => setIsVisionEngineActive(true)}
+                className="px-8 py-4 lg:px-12 lg:py-6 rounded-full border border-gold-dark/50 text-gold-light font-bold tracking-widest text-sm lg:text-lg hover:bg-gold-dark/10 transition-all duration-300"
+              >
+                MANUAL VISION
+              </button>
+            </div>
           </div>
         </section>
 
@@ -507,6 +522,7 @@ export default function App() {
 
       {/* INSTITUTIONAL ANALYTICAL ENGINE OVERLAY */}
       {isEngineActive && <Engine onClose={() => setIsEngineActive(false)} />}
+      {isVisionEngineActive && <VisionEngine onClose={() => setIsVisionEngineActive(false)} />}
 
     </div>
   );
