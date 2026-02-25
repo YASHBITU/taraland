@@ -156,24 +156,26 @@ export default function Engine({ onClose }: { onClose: () => void }) {
             const API_KEY = import.meta.env.VITE_SILICONFLOW_API_KEY || 'YOUR_API_KEY';
 
             const userContent: any[] = [];
-            if (textStr) {
-                userContent.push({ type: 'text', text: textStr });
-            } else {
-                userContent.push({ type: 'text', text: "Analyze these charts according to the Multi-Timeframe Protocol (1H, 15m, 5m, 1m). If single image, treat as composite layout." });
-            }
+            if (hasImages) {
+                if (textStr) {
+                    userContent.push({ type: 'text', text: textStr });
+                } else {
+                    userContent.push({ type: 'text', text: "Analyze these charts according to the Multi-Timeframe Protocol (1H, 15m, 5m, 1m). If single image, treat as composite layout." });
+                }
 
-            currentImages.forEach((imgBase64) => {
-                userContent.push({
-                    type: 'image_url',
-                    image_url: {
-                        url: `data:image/png;base64,${imgBase64}`
-                    }
+                currentImages.forEach((imgBase64) => {
+                    userContent.push({
+                        type: 'image_url',
+                        image_url: {
+                            url: `data:image/png;base64,${imgBase64}`
+                        }
+                    });
                 });
-            });
+            }
 
             const apiMessages = [
                 { role: 'system', content: TARA_SYSTEM_PROMPT },
-                { role: 'user', content: userContent }
+                { role: 'user', content: hasImages ? userContent : (textStr || "Analyze the current market state.") }
             ];
 
             const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
@@ -189,26 +191,8 @@ export default function Engine({ onClose }: { onClose: () => void }) {
             });
 
             if (!response.ok) {
-                // Try fallback model if deepseek format fails
-                console.warn(`Primary model failed (${response.status}), trying fallback GLM-4.7`);
-                const fallbackResponse = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: 'Pro/zai-org/GLM-4.7',
-                        messages: apiMessages
-                    })
-                });
-
-                if (!fallbackResponse.ok) {
-                    throw new Error(`API Error: ${fallbackResponse.status}`);
-                }
-                const fallbackData = await fallbackResponse.json();
-                processResponse(fallbackData);
-                return;
+                const errorData = await response.text();
+                throw new Error(`Model Error: ${response.status} - ${errorData}`);
             }
 
             const data = await response.json();
