@@ -1,505 +1,425 @@
 // @ts-nocheck
-import React, { useState, useEffect, useRef } from 'react';
-import { marked } from 'marked';
-import { Activity, X, ChevronRight, Settings, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Activity, X, ChevronRight, TrendingUp, TrendingDown, DollarSign, Clock, ShieldAlert, Cpu } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-const TARA_SYSTEM_PROMPT = `
-You are TARA, an institutional-grade analytical trading engine.
-Your mission is strictly objective, probabilistic evaluation based on visual market data.
+// Models
+const ANALYST_MODELS = [
+    "Qwen/Qwen3-8B",
+    "THUDM/glm-4-9b-chat",
+    "THUDM/GLM-4-9B-0414",
+    "THUDM/GLM-Z1-9B-0414"
+];
+const JUDGE_MODEL = "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B";
 
-### 1. BIAS IMMUNITY & EXHAUSTION PROTOCOL
-- You must remain completely NEUTRAL. Do not favor LONG signals.
-- SHORT signals are expected and required when market structure is bearish or EXHAUSTED.
-- CRITICAL: If a trend is clearly overextended (too far from moving averages or key origins), you MUST look for "Mean Reversion" or "Distribution" SHORTS.
-- Do not blindly follow the trend if it looks like it's "climaxing" or "sweeping buy-side liquidity" only to reverse.
-
-### 2. THE "ANTI-CHOP" VOLATILITY FILTER (CRITICAL)
-- **Identify Compression:** If candles are small, overlapping, and range-bound (typical of Asian Session or Pre-NFP), output "STAY AWAY".
-- **Avoid The Bleed:** Do not signal an entry inside a tight consolidation. Wait for a clear Break of Structure (BOS) with Displacement (large candle body).
-- **Low Probability:** If the 5m and 15m/1H are conflicting or flat, the signal is "STAY AWAY".
-
-### 3. IMAGE HANDLING PROTOCOL
-Interpret images in this sequence:
-1. **Scenario A (Multiple Files):** Slot 1 (1H Macro Trend) -> Slot 2 (15M Structure) -> Slot 3 (5M Intraday) -> Slot 4 (1M Entry).
-2. **Scenario B (Single File/Composite):** If a SINGLE image is provided that contains MULTIPLE charts (e.g., a TradingView split-screen layout), you MUST identify the separate timeframes within that single image. Analyze the macro structure from one part, order flow from another, and entry from the third.
-3. Treat a single composite screenshot as valid input for all required timeframes.
-
-### 4. PRICE & VALUE PROTOCOL
-- "confidence": MUST be an integer between 0 and 100. **Penalize confidence below 80 for ranges.**
-- "entryZone" & "targetZone": MUST be a SINGLE optimal price value.
-- "riskToReward": Calculate a realistic ratio (e.g., 1:3). **Minimum 1:2 required.**
-
-### REQUIRED OUTPUT FORMAT (JSON)
-Respond ONLY with this JSON structure. Do not include markdown code blocks like \`\`\`json. Just the raw JSON string.
-{
-  "pattern": "string",
-  "bias": "string",
-  "entryZone": "string",
-  "stopLoss": "string",
-  "targetZone": "string",
-  "expectedDirection": "LONG" | "SHORT" | "STAY AWAY",
-  "breakoutPrice": "string",
-  "confidence": 0,
-  "riskToReward": "string",
-  "thesis": "string",
-  "invalidation": "string",
-  "reasoning": {
-    "regime": "string",
-    "multiTF": "string",
-    "volumeMicro": "string",
-    "liquidity": "string",
-    "volatility": "string",
-    "divergingTF": "string"
-  },
-  "catalysts": "string",
-  "riskNotes": "string",
-  "newsWatchlist": "string",
-  "extractedTicker": "string"
-}
-`;
-
-interface Message {
-    id: string;
-    role: 'user' | 'ai' | 'system';
-    content: string;
-    images?: string[];
-    parsedData?: any;
+interface Signal {
+    time: string;
+    bias: string;
+    entry: number;
+    sl: number;
+    tp: number;
+    status: string;
 }
 
 export default function Engine({ onClose }: { onClose: () => void }) {
-    const [images, setImages] = useState<string[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [input, setInput] = useState('');
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
-    const [tickerDisplay, setTickerDisplay] = useState("MARKET SCANNER");
+    const [price, setPrice] = useState<number>(0);
+    const [priceChange, setPriceChange] = useState<number>(0);
+    const [chartData, setChartData] = useState<any[]>([]);
 
-    const chatEndRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const [isScanning, setIsScanning] = useState(false);
+    const [countdown, setCountdown] = useState(600); // 10 mins
 
+    const [reports, setReports] = useState<Record<string, { status: string, raw: string }>>({});
+    const [judgeVerdict, setJudgeVerdict] = useState<any>(null);
+    const [history, setHistory] = useState<Signal[]>([]);
+
+    // Initialize reports state
     useEffect(() => {
-        const handleResize = () => {
-            setIsSidebarOpen(window.innerWidth > 768);
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        const initReports: any = {};
+        ANALYST_MODELS.forEach(m => {
+            initReports[m] = { status: "WAITING", raw: "-" };
+        });
+        setReports(initReports);
     }, []);
 
+    // WebSocket for Live Price
     useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, isLoading]);
+        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            setPrice(parseFloat(data.c));
+            setPriceChange(parseFloat(data.P));
+        };
+        return () => ws.close();
+    }, []);
 
+    // Fetch initial chart data
     useEffect(() => {
-        const handlePaste = (e: ClipboardEvent) => {
-            const items = e.clipboardData?.items;
-            if (!items) return;
-
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image/') !== -1) {
-                    const blob = items[i].getAsFile();
-                    if (blob) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            if (event.target?.result && images.length < 4) {
-                                const base64 = (event.target.result as string).split(',')[1];
-                                setImages(prev => [...prev, base64].slice(0, 4));
-                            }
-                        };
-                        reader.readAsDataURL(blob);
-                    }
-                }
+        const fetchKlines = async () => {
+            try {
+                const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=50');
+                const data = await res.json();
+                const formatted = data.map((d: any) => ({
+                    time: new Date(d[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    price: parseFloat(d[4])
+                }));
+                setChartData(formatted);
+            } catch (e) {
+                console.error(e);
             }
         };
+        fetchKlines();
+        const interval = setInterval(fetchKlines, 15 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
 
-        window.addEventListener('paste', handlePaste);
-        return () => window.removeEventListener('paste', handlePaste);
-    }, [images]);
+    // Timer countdown
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCountdown(prev => {
+                if (prev <= 1 && !isScanning) {
+                    runScan();
+                    return 600;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [isScanning]);
 
-    const startNewChat = () => {
-        setMessages([]);
-        setImages([]);
-        setInput('');
-        setTickerDisplay("MARKET SCANNER");
+    const callSiliconFlow = async (model: string, systemPrompt: string, userPrompt: string) => {
+        const API_KEY = import.meta.env.VITE_SILICONFLOW_API_KEY;
+        const res = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_KEY}`
+            },
+            body: JSON.stringify({
+                model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                max_tokens: 500
+            })
+        });
+        if (!res.ok) throw new Error(`Model Error: ${res.status}`);
+        const data = await res.json();
+        return data.choices[0]?.message?.content || "";
     };
 
-    const removeImage = (idx: number) => {
-        setImages(prev => prev.filter((_, i) => i !== idx));
+    const getMarketIntel = async () => {
+        const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=5');
+        const data = await res.json();
+        return data.map((d: any) => `C:${d[4]} H:${d[2]} L:${d[3]}`).join(' | ');
     };
 
-    const handleEnter = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    };
-
-    const sendMessage = async () => {
-        const textStr = input.trim();
-        const currentImages = [...images];
-        const hasImages = currentImages.length > 0;
-
-        if ((!textStr && !hasImages) || isLoading) return;
-
-        const newMsg: Message = {
-            id: Date.now().toString(),
-            role: 'user',
-            content: textStr,
-            images: currentImages
-        };
-
-        setMessages(prev => [...prev, newMsg]);
-        setInput('');
-        setImages([]);
-        setIsLoading(true);
+    const runScan = async () => {
+        if (isScanning) return;
+        setIsScanning(true);
+        setJudgeVerdict(null);
 
         try {
-            const API_KEY = import.meta.env.VITE_SILICONFLOW_API_KEY || 'YOUR_API_KEY';
+            const intel = await getMarketIntel();
+            const userPrompt = `BTC @ $${price}\nMarket Context (1H): ${intel}\nOutput ONLY: Bias (LONG/SHORT), Entry price, Stop Loss, Take Profit. Be purely objective.`;
 
-            const userContent: any[] = [];
-            if (hasImages) {
-                if (textStr) {
-                    userContent.push({ type: 'text', text: textStr });
-                } else {
-                    userContent.push({ type: 'text', text: "Analyze these charts according to the Multi-Timeframe Protocol (1H, 15m, 5m, 1m). If single image, treat as composite layout." });
+            // Run Analysts
+            const newReports = { ...reports };
+            await Promise.all(ANALYST_MODELS.map(async (model) => {
+                newReports[model] = { status: "POLLING...", raw: "" };
+                setReports({ ...newReports });
+                try {
+                    const out = await callSiliconFlow(model, "You are an elite crypto quantitative analyst. Be extremely concise.", userPrompt);
+                    newReports[model] = { status: "OK", raw: out.substring(0, 150) };
+                } catch (e) {
+                    newReports[model] = { status: "FAILED", raw: "API timeout or error." };
                 }
+                setReports({ ...newReports });
+            }));
 
-                currentImages.forEach((imgBase64) => {
-                    userContent.push({
-                        type: 'image_url',
-                        image_url: {
-                            url: `data:image/png;base64,${imgBase64}`
-                        }
-                    });
-                });
+            // Run Judge
+            const judgeSystem = "You are a trading signal consolidator. Analyze analyst reports. JSON Output ONLY. Exact keys: 'bias' (LONG/SHORT), 'entry' (number), 'sl' (number), 'tp' (number), 'confidence' (string). No markdown blocks.";
+
+            let allIntel = "";
+            for (const m of ANALYST_MODELS) {
+                allIntel += `[${m}]: ${newReports[m].raw}\n`;
             }
 
-            const apiMessages = [
-                { role: 'system', content: TARA_SYSTEM_PROMPT },
-                { role: 'user', content: hasImages ? userContent : (textStr || "Analyze the current market state.") }
-            ];
+            const judgePrompt = `Current BTC Price: ${price}\n\nAnalyst Reports:\n${allIntel}\n\nReturn consolidated JSON ONLY.`;
 
-            // Determine appropriate model
-            // For VLM (vision) tasks, user specifically wants: THUDM/GLM-4.1V-9B-Thinking
-            // For text-only (analyst/judge/text input), we will use deepseek R1 or others from list
-            const targetModel = hasImages ? 'THUDM/GLM-4.1V-9B-Thinking' : 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B';
+            const rawJudge = await callSiliconFlow(JUDGE_MODEL, judgeSystem, judgePrompt);
 
-            const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${API_KEY}`
-                },
-                body: JSON.stringify({
-                    model: targetModel,
-                    messages: apiMessages
-                })
-            });
+            // Clean markdown json fences
+            let cleanJson = rawJudge.replace(/```json/g, '').replace(/```/g, '').trim();
 
-            if (!response.ok) {
-                const errorData = await response.text();
-                throw new Error(`Model Error: ${response.status} - ${errorData}`);
-            }
+            // Just matching first { to last }
+            const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+            if (jsonMatch) cleanJson = jsonMatch[0];
 
-            const data = await response.json();
-            processResponse(data);
-
-        } catch (error: any) {
-            setMessages(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'system',
-                content: `ERROR: ${error.message}`
-            }]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const processResponse = (data: any) => {
-        let aiText = data.choices?.[0]?.message?.content || data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!aiText) throw new Error("No content generated");
-
-        // Sometimes deepseek-r1 returns <think> blocks, we should strip them or just parse JSON directly
-        const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-        let parsedData = null;
-        if (jsonMatch) {
+            let jData: any = {};
             try {
-                parsedData = JSON.parse(jsonMatch[0]);
-                if (parsedData.extractedTicker) {
-                    setTickerDisplay(parsedData.extractedTicker);
-                }
-                aiText = jsonMatch[0]; // strictly set to JSON
-            } catch (e) { }
+                jData = JSON.parse(cleanJson);
+            } catch (e) {
+                jData = { bias: "ERROR", entry: price, sl: price * 0.99, tp: price * 1.02, confidence: "LOW" };
+            }
+
+            const risk = Math.abs(parseFloat(jData.entry) - parseFloat(jData.sl)) || 1;
+            const reward = Math.abs(parseFloat(jData.tp) - parseFloat(jData.entry));
+            const rr = (reward / risk).toFixed(2);
+            const status = parseFloat(rr) >= 1.5 ? "EXECUTE" : "VETO";
+
+            const verdict = {
+                bias: jData.bias?.toUpperCase() || "STAY AWAY",
+                entry: parseFloat(jData.entry) || price,
+                sl: parseFloat(jData.sl) || 0,
+                tp: parseFloat(jData.tp) || 0,
+                rr: rr,
+                status: status,
+                confidence: jData.confidence || "MEDIUM" // Fix case
+            };
+
+            setJudgeVerdict(verdict);
+
+            setHistory(prev => [{
+                time: new Date().toLocaleTimeString(),
+                bias: verdict.bias,
+                entry: verdict.entry,
+                sl: verdict.sl,
+                tp: verdict.tp,
+                status: verdict.status
+            }, ...prev].slice(0, 6));
+
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsScanning(false);
+            setCountdown(600);
         }
-
-        setMessages(prev => [...prev, {
-            id: Date.now().toString(),
-            role: 'ai',
-            content: aiText,
-            parsedData
-        }]);
-    }
-
-    const renderTARACard = (data: any) => {
-        const isLong = data.expectedDirection === 'LONG';
-        const isShort = data.expectedDirection === 'SHORT';
-
-        let btnClass = 'bg-gray-700 text-gray-400 cursor-not-allowed';
-        let btnText = 'WAIT / STAY AWAY';
-        let btnShadow = '';
-        let statusText = 'STAY AWAY';
-        let statusColor = 'text-gray-500';
-
-        if (isLong) {
-            btnClass = 'bg-emerald-500 hover:bg-emerald-400 text-white';
-            btnText = 'BUY NOW';
-            btnShadow = 'shadow-[0_0_20px_rgba(16,185,129,0.4)]';
-            statusText = 'BULLISH';
-            statusColor = 'text-emerald-500';
-        } else if (isShort) {
-            btnClass = 'bg-red-500 hover:bg-red-400 text-white';
-            btnText = 'SELL NOW';
-            btnShadow = 'shadow-[0_0_20px_rgba(239,68,68,0.4)]';
-            statusText = 'BEARISH';
-            statusColor = 'text-red-500';
-        }
-
-        return (
-            <div className="w-full">
-                <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl rounded-tl-none p-5 shadow-lg mb-4 animate-fade-in">
-                    <p className="text-sm text-gray-300 leading-relaxed">
-                        Analysis complete. <strong className={statusColor}>{statusText} {data.pattern?.toUpperCase() || 'SETUP'}</strong> detected.
-                    </p>
-                </div>
-
-                <div className="signal-card rounded-2xl p-6 relative overflow-hidden animate-fade-in border border-[#333] bg-gradient-to-br from-[#1a1a1a] to-[#111111]">
-                    <div className="flex justify-between items-center mb-6">
-                        <div className="flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-gold-primary text-gold-light" />
-                            <span className="text-xs font-bold text-gold-light tracking-[0.2em] uppercase">{data.extractedTicker || 'ASSET'} PREMIUM SIGNAL</span>
-                        </div>
-                        <div className="bg-[#333] text-[#ccc] text-[10px] font-bold px-2 py-1 rounded border border-[#444]">
-                            {data.confidence}% CONFIDENCE
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-                        <div>
-                            <p className="text-[10px] text-[#666] uppercase font-bold tracking-wider mb-1">ENTRY PRICE</p>
-                            <p className="text-2xl font-bold text-white font-mono">{data.entryZone}</p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] text-[#666] uppercase font-bold tracking-wider mb-1">TAKE PROFIT</p>
-                            <p className="text-2xl font-bold text-gold-light font-mono">{data.targetZone}</p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] text-[#666] uppercase font-bold tracking-wider mb-1">STOP LOSS</p>
-                            <p className="text-2xl font-bold text-[#ef4444] font-mono">{data.stopLoss}</p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col md:flex-row items-center justify-between border-t border-[#333] pt-6 gap-4">
-                        <div className="flex gap-8 w-full md:w-auto">
-                            <div>
-                                <p className="text-[10px] text-[#666] uppercase font-bold mb-0.5">RISK/REWARD</p>
-                                <p className="text-sm font-medium text-white">{data.riskToReward}</p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-[#666] uppercase font-bold mb-0.5">ESTIMATED MOVE</p>
-                                <p className="text-sm font-medium text-white">{data.reasoning?.volatility || "Standard"}</p>
-                            </div>
-                        </div>
-                        <button className={`w-full md:w-auto ${btnClass} font-bold text-xs px-6 py-3 rounded-lg flex items-center justify-center gap-2 ${btnShadow} transition-all transform hover:scale-105`}>
-                            <ChevronRight className="w-3 h-3 rotate-90" />
-                            {btnText}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
     };
 
     return (
-        <div className="fixed inset-0 z-[200] flex bg-[#0a0a0a] text-white font-sans overflow-hidden">
-            {/* LEFT SIDEBAR */}
-            <aside className={`flex flex-col border-r border-[#222] bg-[#0e0e0e] z-30 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden opacity-0'}`}>
-                <div className="p-6 flex items-center gap-3 border-b border-[#222] min-w-[16rem]">
-                    <div className="w-8 h-8 rounded-lg bg-gold-light flex items-center justify-center text-black font-bold text-xl shadow-[0_0_15px_rgba(252,213,53,0.4)] flex-shrink-0">
-                        <Activity className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h1 className="font-bold text-white text-sm tracking-wide">TARA<span className="font-light text-gold-light">PRO</span></h1>
-                        <span className="text-[10px] text-[#666] block">Institutional Engine</span>
-                    </div>
-                </div>
-
-                <div className="px-4 mt-6 min-w-[16rem]">
-                    <button onClick={startNewChat} className="w-full flex items-center justify-center gap-2 bg-[#1c1c1c] hover:bg-[#222] border border-[#333] text-white py-3 rounded-lg text-xs font-bold transition-all active:scale-95 group whitespace-nowrap">
-                        <ChevronRight className="w-4 h-4 text-gold-light group-hover:rotate-90 transition-transform flex-shrink-0" />
-                        NEW ANALYSIS
-                    </button>
-                </div>
-
-                <nav className="flex-1 px-4 space-y-2 mt-6 overflow-hidden min-w-[16rem]">
-                    <button className="w-full flex items-center gap-3 px-4 py-3 text-gold-light bg-gold-light/10 border-l-[3px] border-gold-light rounded-lg text-left whitespace-nowrap">
-                        <Activity className="w-5 h-5 flex-shrink-0" />
-                        <span className="text-sm font-medium">Terminal</span>
-                    </button>
-                    <button onClick={onClose} className="w-full flex items-center gap-3 px-4 py-3 text-[#888] hover:text-white rounded-lg transition-colors text-left whitespace-nowrap group">
-                        <X className="w-5 h-5 flex-shrink-0 group-hover:text-red-400 transition-colors" />
-                        <span className="text-sm font-medium">Exit Engine</span>
-                    </button>
-                </nav>
-
-                <div className="p-6 border-t border-[#222] whitespace-nowrap overflow-hidden min-w-[16rem]">
-                    <p className="text-xs font-bold text-[#666] uppercase mb-4 tracking-wider">Session History</p>
-                    <div className="space-y-4">
-                        <p className="text-[10px] text-[#444] italic">Active memory synced.</p>
-                    </div>
-                </div>
-
-                <div className="p-4 bg-[#0a0a0a] border-t border-[#222] flex items-center gap-3 whitespace-nowrap overflow-hidden min-w-[16rem]">
-                    <div className="w-8 h-8 rounded-full bg-[#333] flex items-center justify-center flex-shrink-0">
-                        <User className="w-4 h-4 text-[#888]" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold text-white">Professional Trader</p>
-                        <p className="text-[10px] text-gold-light uppercase tracking-wider">Premium Plan</p>
-                    </div>
-                </div>
-            </aside>
-
-            {/* CENTER MAIN */}
-            <main className="flex-1 flex flex-col relative w-full min-w-0" ref={containerRef}>
-                <header className="h-16 border-b border-[#222] flex items-center justify-between px-6 bg-[#0e0e0e]">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-[#888] hover:text-white focus:outline-none p-1 transition-colors">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                        </button>
-                        <div className="h-6 w-px bg-[#333]"></div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                            <span className="text-xs font-medium text-[#888] tracking-widest uppercase hidden md:inline">Live Engine</span>
-                        </div>
-                    </div>
+        <div className="fixed inset-0 z-[200] bg-[#0A0D10] text-[#86909C] font-sans flex flex-col overflow-hidden">
+            {/* Header Area */}
+            <header className="h-16 border-b border-[#1C2026] flex items-center justify-between px-6 bg-[#0E1216] shrink-0">
+                <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <span className="font-bold text-white tracking-wide">{tickerDisplay}</span>
-                        <span className="text-xs text-emerald-500 font-mono">ACTIVE</span>
+                        <Activity className="w-6 h-6 text-[#00E676]" />
+                        <span className="font-bold text-white text-lg tracking-wide">TARA<span className="font-light text-[#00E676]">PRO</span></span>
                     </div>
-                </header>
 
-                {/* Chat Area */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth">
-                    {messages.length === 0 && (
-                        <div className="flex gap-4 max-w-2xl animate-fade-in">
-                            <div className="w-8 h-8 rounded-full bg-gold-light flex-shrink-0 flex items-center justify-center">
-                                <Activity className="w-4 h-4 text-black" />
-                            </div>
-                            <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl rounded-tl-none p-5 shadow-lg">
-                                <p className="text-sm text-gray-300 leading-relaxed mb-4">
-                                    System Ready. Anti-Chop Protocol Active.
-                                </p>
-                                <p className="text-sm text-gray-300 leading-relaxed">
-                                    Upload charts (Macro, Structure, Entry) to begin probabilistic evaluation. <br />
-                                    <span className="text-gold-light">Recommendation:</span> Use 1H + 15m for Trend, 5m for Structure, 1m for Entry. Paste anywhere (Ctrl+V).
-                                </p>
-                            </div>
-                        </div>
-                    )}
+                    <div className="hidden md:flex gap-6 text-sm font-medium">
+                        <button className="text-white border-b-2 border-[#00E676] pb-5 pt-5">Dashboard</button>
+                        <button className="hover:text-white transition-colors">Council Reports</button>
+                        <button className="hover:text-white transition-colors">Risk Desk</button>
+                    </div>
+                </div>
 
-                    {messages.map((msg) => (
-                        <div key={msg.id} className={`flex gap-4 max-w-3xl ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
-                            {msg.role === 'system' ? (
-                                <div className="w-full text-center text-red-500 font-mono text-xs p-2 border border-red-900 bg-red-900/10 rounded animate-pulse">{msg.content}</div>
-                            ) : msg.role === 'user' ? (
-                                <>
-                                    <div className="w-8 h-8 rounded-full bg-[#222] flex-shrink-0 flex items-center justify-center border border-[#333]">
-                                        <User className="w-4 h-4 text-[#888]" />
+                <div className="flex items-center gap-4">
+                    <div className="bg-[#1C2026] px-4 py-1.5 rounded-full flex items-center gap-2 border border-[#2B313A]">
+                        <div className="w-2 h-2 rounded-full bg-[#00E676] animate-pulse"></div>
+                        <span className="text-xs font-mono text-[#E5E7EB]">Next Scan: {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}</span>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-[#1C2026] rounded-lg transition-colors">
+                        <X className="w-5 h-5 text-[#86909C]" />
+                    </button>
+                </div>
+            </header>
+
+            {/* Main Content Dashboard */}
+            <div className="flex-1 overflow-y-auto w-full p-4 md:p-6 lg:p-8 custom-scrollbar">
+                <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    {/* LEFT COLUMN: SWAP / VERDICT WIDGET */}
+                    <div className="lg:col-span-3 space-y-6">
+                        <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-5 shadow-2xl">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-white font-semibold">Judge Verdict</h2>
+                                <button onClick={runScan} disabled={isScanning} className="bg-[#1C2026] hover:bg-[#2B313A] border border-[#2B313A] text-white text-xs px-3 py-1.5 rounded-md transition-all flex items-center gap-1">
+                                    {isScanning ? <Cpu className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
+                                    {isScanning ? 'Scanning' : 'Scan Now'}
+                                </button>
+                            </div>
+
+                            {judgeVerdict ? (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div className="bg-[#0A0D10] border border-[#1C2026] rounded-xl p-4">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-xs font-medium uppercase tracking-wider text-[#86909C]">Direction</span>
+                                            <span className={`text-sm font-bold ${judgeVerdict.bias.includes('LONG') ? 'text-[#00E676]' : judgeVerdict.bias.includes('SHORT') ? 'text-red-500' : 'text-gray-400'}`}>
+                                                {judgeVerdict.bias}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col items-end">
-                                        {msg.images && msg.images.length > 0 && (
-                                            <div className="bg-[#1a1a1a] border border-[#333] border-gold-light/50 rounded-2xl p-4 mb-2">
-                                                <p className="text-gold-light text-xs font-bold mb-3">Analysis Request: {msg.images.length} {msg.images.length > 1 ? 'Timeframes' : 'Composite View'}</p>
-                                                <div className="flex gap-2">
-                                                    {msg.images.map((src, i) => (
-                                                        <img key={i} src={`data:image/png;base64,${src}`} className="w-20 h-12 object-cover rounded border border-[#444]" />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {msg.content && (
-                                            <div className="bg-[#222] text-white px-5 py-3 rounded-2xl rounded-tr-none text-sm">{msg.content}</div>
-                                        )}
+
+                                    <div className="bg-[#0A0D10] border border-[#1C2026] rounded-xl p-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-xs font-medium uppercase tracking-wider text-[#86909C]">Entry</span>
+                                            <span className="text-sm font-mono text-white">${judgeVerdict.entry.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-xs font-medium uppercase tracking-wider text-[#86909C]">Target</span>
+                                            <span className="text-sm font-mono text-[#00E676]">${judgeVerdict.tp.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-medium uppercase tracking-wider text-[#86909C]">Stop Loss</span>
+                                            <span className="text-sm font-mono text-red-500">${judgeVerdict.sl.toLocaleString()}</span>
+                                        </div>
                                     </div>
-                                </>
+
+                                    <div className="flex gap-2">
+                                        <div className="flex-1 bg-[#0A0D10] border border-[#1C2026] rounded-xl p-3 text-center">
+                                            <p className="text-[10px] uppercase mb-1">Risk/Reward</p>
+                                            <p className="font-bold text-white font-mono">1 : {judgeVerdict.rr}</p>
+                                        </div>
+                                        <div className="flex-1 bg-[#0A0D10] border border-[#1C2026] rounded-xl p-3 text-center">
+                                            <p className="text-[10px] uppercase mb-1">Status</p>
+                                            <p className={`font-bold ${judgeVerdict.status === 'EXECUTE' ? 'text-[#00E676]' : 'text-red-500'}`}>{judgeVerdict.status}</p>
+                                        </div>
+                                    </div>
+
+                                    <button className={`w-full py-3.5 rounded-xl font-bold text-white tracking-wide transition-all transform hover:scale-[1.02] active:scale-95 ${judgeVerdict.status === 'EXECUTE' ? 'bg-[#00E676] hover:bg-[#00C853] text-[#0A0D10]' : 'bg-[#2B313A] text-gray-400 cursor-not-allowed'}`}>
+                                        {judgeVerdict.status === 'EXECUTE' ? 'EXECUTE SIGNAL' : 'SIGNAL VETOED'}
+                                    </button>
+                                </div>
                             ) : (
-                                <>
-                                    <div className="w-8 h-8 rounded-full bg-gold-light flex-shrink-0 flex items-center justify-center">
-                                        <Activity className="w-4 h-4 text-black" />
-                                    </div>
-                                    {msg.parsedData ? renderTARACard(msg.parsedData) : (
-                                        <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl rounded-tl-none p-5 shadow-lg prose prose-invert prose-sm max-w-none w-full"
-                                            dangerouslySetInnerHTML={{ __html: marked(msg.content) }} />
-                                    )}
-                                </>
+                                <div className="h-64 flex flex-col items-center justify-center border border-dashed border-[#2B313A] rounded-xl bg-[#0A0D10]/50">
+                                    <ShieldAlert className="w-8 h-8 text-[#2B313A] mb-3" />
+                                    <p className="text-xs text-[#86909C]">Awaiting Next Council Scan...</p>
+                                </div>
                             )}
                         </div>
-                    ))}
+                    </div>
 
-                    {isLoading && (
-                        <div className="flex items-center gap-3 p-4 animate-pulse ml-12">
-                            <div className="flex space-x-1">
-                                <div className="w-2 h-2 bg-gold-light rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                                <div className="w-2 h-2 bg-gold-light rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                <div className="w-2 h-2 bg-gold-light rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                            </div>
-                            <span className="text-xs font-mono text-[#666] tracking-widest">ANALYZING MARKET DATA...</span>
-                        </div>
-                    )}
-                    <div ref={chatEndRef} />
-                </div>
+                    {/* MIDDLE & RIGHT COLUMN */}
+                    <div className="lg:col-span-9 flex flex-col gap-6 w-full">
 
-                {/* Input Area */}
-                <div className="p-4 md:p-6 pt-0 bg-transparent z-10 relative mt-auto">
-                    <div className="bg-[#1c1c1c] border border-[#333] rounded-2xl p-2 flex items-center shadow-2xl max-w-4xl mx-auto relative">
-                        {/* Upload Slots */}
-                        <div className="flex gap-1.5 mr-2 ml-1">
-                            {['1H', '15M', '5M', '1M'].map((label, idx) => {
-                                const isFilled = !!images[idx];
-                                return (
-                                    <div key={idx} onClick={() => isFilled && removeImage(idx)} className={`w-10 h-9 rounded bg-[#111] flex items-center justify-center relative cursor-pointer group border transition-colors ${isFilled ? 'border-gold-light bg-gold-light/5' : 'border-[#333] hover:border-[#555]'}`}>
-                                        <span className="text-[9px] text-[#666] font-bold group-hover:text-white font-mono">{label}</span>
-                                        {isFilled && (
-                                            <>
-                                                <img src={`data:image/png;base64,${images[idx]}`} className="absolute inset-0 w-full h-full object-cover rounded opacity-60 group-hover:opacity-100 transition-opacity" />
-                                                <div className="absolute inset-0 bg-gold-light/10"></div>
-                                            </>
-                                        )}
+                        {/* CHART WIDGET */}
+                        <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-5 shadow-xl w-full">
+                            <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-[#1C2026] rounded-full flex items-center justify-center p-2">
+                                        <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=024" className="w-full h-full" alt="BTC" />
                                     </div>
-                                );
-                            })}
+                                    <div>
+                                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                            BTC / USDT
+                                            <span className="text-xs bg-[#1C2026] px-2 py-0.5 rounded text-[#86909C]">Perp</span>
+                                        </h2>
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-mono text-xl font-bold text-white">${price > 0 ? price.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '...'}</span>
+                                            <span className={`text-sm font-medium flex items-center ${priceChange >= 0 ? 'text-[#00E676]' : 'text-red-500'}`}>
+                                                {priceChange >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
+                                                {priceChange > 0 ? '+' : ''}{priceChange.toFixed(2)}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex bg-[#0A0D10] rounded-lg p-1 border border-[#1C2026]">
+                                    {['15M', '1H', '4H', '1D'].map(tf => (
+                                        <button key={tf} className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${tf === '15M' ? 'bg-[#1C2026] text-white' : 'text-[#86909C] hover:text-white'}`}>
+                                            {tf}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData}>
+                                        <defs>
+                                            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#00E676" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#00E676" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="time" hide />
+                                        <YAxis domain={['auto', 'auto']} hide />
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#13161A', borderColor: '#2B313A', borderRadius: '8px', color: '#fff' }}
+                                            itemStyle={{ color: '#00E676' }}
+                                        />
+                                        <Area type="monotone" dataKey="price" stroke="#00E676" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" isAnimationActive={false} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
 
-                        <div className="h-6 w-px bg-[#333] mx-2 hidden sm:block"></div>
+                        {/* ANALYSTS & HISTORY GRID */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
 
-                        <textarea
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={handleEnter}
-                            rows={1}
-                            placeholder={images.length > 0 ? `${images.length}/4 uploaded. Paste next or Enter...` : "Paste charts (Ctrl+V) or ask TARA..."}
-                            className="bg-transparent border-none focus:outline-none focus:ring-0 text-sm text-white flex-1 px-2 md:px-4 py-3 resize-none placeholder-[#444] font-mono leading-tight"
-                        />
+                            {/* ANALYST REPORTS */}
+                            <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-5 shadow-xl flex flex-col h-full min-w-0">
+                                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                                    <Cpu className="w-4 h-4 text-[#00E676]" />
+                                    Analyst Council Data
+                                </h3>
+                                <div className="space-y-3 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                                    {Object.entries(reports).map(([model, data]: [string, any], idx) => (
+                                        <div key={idx} className="bg-[#0A0D10] border border-[#1C2026] rounded-xl p-3">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-xs font-bold text-white truncate max-w-[150px] block">{model.split('/').pop()}</span>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${data.status === 'OK' ? 'bg-[#00E676]/10 text-[#00E676]' : data.status === 'WAITING' ? 'bg-[#2B313A] text-gray-400' : 'bg-red-500/10 text-red-500'}`}>
+                                                    {data.status}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs leading-relaxed text-[#86909C] line-clamp-2">
+                                                {data.raw || "Awaiting scan trigger..."}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
 
-                        <div className="flex items-center gap-3 pr-1">
-                            <span className="text-[10px] text-[#555] font-mono hidden md:block whitespace-nowrap">Ctrl+V to paste</span>
-                            <button onClick={sendMessage} disabled={isLoading} className="bg-gold-light hover:brightness-110 text-black rounded-lg p-2.5 transition-transform active:scale-95 shadow-[0_0_15px_rgba(198,168,79,0.3)] flex items-center justify-center">
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
+                            {/* SIGNAL HISTORY */}
+                            <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-5 shadow-xl flex flex-col h-full min-w-0">
+                                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-[#00E676]" />
+                                    Trade Signal History
+                                </h3>
+
+                                <div className="flex-1 w-full overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="border-b border-[#1C2026] text-xs text-[#86909C] uppercase tracking-wider">
+                                                <th className="pb-3 font-medium">Time</th>
+                                                <th className="pb-3 font-medium">Bias</th>
+                                                <th className="pb-3 font-medium">Entry</th>
+                                                <th className="pb-3 font-medium text-right">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-sm">
+                                            {history.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="py-8 text-center text-xs text-[#2B313A]">No signals in current session</td>
+                                                </tr>
+                                            ) : (
+                                                history.map((sig, idx) => (
+                                                    <tr key={idx} className="border-b border-[#1C2026]/50 last:border-0 hover:bg-[#1C2026]/30 transition-colors">
+                                                        <td className="py-3 text-[#86909C]">{sig.time}</td>
+                                                        <td className={`py-3 font-semibold ${sig.bias.includes('LONG') ? 'text-[#00E676]' : sig.bias.includes('SHORT') ? 'text-red-500' : 'text-gray-400'}`}>
+                                                            {sig.bias}
+                                                        </td>
+                                                        <td className="py-3 text-white font-mono">${sig.entry.toLocaleString()}</td>
+                                                        <td className="py-3 text-right">
+                                                            <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${sig.status === 'EXECUTE' ? 'bg-[#00E676]/10 text-[#00E676]' : 'bg-[#2B313A] text-gray-400'}`}>
+                                                                {sig.status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
+
                     </div>
                 </div>
-            </main>
+            </div>
+
+            <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #2B313A; border-radius: 4px; }`}</style>
         </div>
     );
 }
-
