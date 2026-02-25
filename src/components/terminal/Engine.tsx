@@ -178,6 +178,11 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                 { role: 'user', content: hasImages ? userContent : (textStr || "Analyze the current market state.") }
             ];
 
+            // Determine appropriate model
+            // For VLM (vision) tasks, user specifically wants: THUDM/GLM-4.1V-9B-Thinking
+            // For text-only (analyst/judge/text input), we will use deepseek R1 or others from list
+            const targetModel = hasImages ? 'THUDM/GLM-4.1V-9B-Thinking' : 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B';
+
             const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -185,7 +190,7 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                     'Authorization': `Bearer ${API_KEY}`
                 },
                 body: JSON.stringify({
-                    model: 'deepseek-ai/DeepSeek-R1-0528-Qwen3-8B',
+                    model: targetModel,
                     messages: apiMessages
                 })
             });
