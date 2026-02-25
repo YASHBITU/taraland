@@ -135,11 +135,11 @@ export default function Engine({ onClose }: { onClose: () => void }) {
 
     const sendMessage = async () => {
         const textStr = input.trim();
-        const hasImages = images.length > 0;
+        const currentImages = [...images];
+        const hasImages = currentImages.length > 0;
 
         if ((!textStr && !hasImages) || isLoading) return;
 
-        const currentImages = [...images];
         const newMsg: Message = {
             id: Date.now().toString(),
             role: 'user',
