@@ -20,6 +20,36 @@ export default function App() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isMobile, setIsMobile] = useState(false);
 
+  // URL routing state
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      setIsEngineActive(path === '/auto');
+      setIsVisionEngineActive(path === '/manual');
+    };
+    handlePopState();
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const openEngine = () => {
+    window.history.pushState({}, '', '/auto');
+    setIsEngineActive(true);
+  };
+  const closeEngine = () => {
+    window.history.pushState({}, '', '/');
+    setIsEngineActive(false);
+  };
+
+  const openVisionEngine = () => {
+    window.history.pushState({}, '', '/manual');
+    setIsVisionEngineActive(true);
+  };
+  const closeVisionEngine = () => {
+    window.history.pushState({}, '', '/');
+    setIsVisionEngineActive(false);
+  };
+
   // Throttled Parallax & Responsive Detection
   useEffect(() => {
     let ticking = false;
@@ -100,10 +130,10 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
-            <button onClick={() => setIsVisionEngineActive(true)} className="px-4 py-2 lg:px-6 lg:py-2.5 rounded-full border border-gold-dark/50 text-gold-light hover:bg-gold-dark/10 font-bold text-[10px] lg:text-xs tracking-widest transition-all duration-300">
+            <button onClick={openVisionEngine} className="px-4 py-2 lg:px-6 lg:py-2.5 rounded-full border border-gold-dark/50 text-gold-light hover:bg-gold-dark/10 font-bold text-[10px] lg:text-xs tracking-widest transition-all duration-300">
               MANUAL VISION
             </button>
-            <button onClick={() => setIsEngineActive(true)} className="shimmer-sweep px-4 py-2 lg:px-6 lg:py-2.5 rounded-full bg-gradient-gold text-bg-primary font-bold text-xs lg:text-sm tracking-widest hover:shadow-[0_0_20px_rgba(198,168,79,0.3)] transition-all duration-300">
+            <button onClick={openEngine} className="shimmer-sweep px-4 py-2 lg:px-6 lg:py-2.5 rounded-full bg-gradient-gold text-bg-primary font-bold text-xs lg:text-sm tracking-widest hover:shadow-[0_0_20px_rgba(198,168,79,0.3)] transition-all duration-300">
               AUTO DASHBOARD
             </button>
           </div>
@@ -521,8 +551,8 @@ export default function App() {
       </AnimatePresence>
 
       {/* INSTITUTIONAL ANALYTICAL ENGINE OVERLAY */}
-      {isEngineActive && <Engine onClose={() => setIsEngineActive(false)} />}
-      {isVisionEngineActive && <VisionEngine onClose={() => setIsVisionEngineActive(false)} />}
+      {isEngineActive && <Engine onClose={closeEngine} />}
+      {isVisionEngineActive && <VisionEngine onClose={closeVisionEngine} />}
 
     </div>
   );
