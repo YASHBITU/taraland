@@ -17,6 +17,7 @@ const JUDGE_MODEL = "Qwen/Qwen2.5-7B-Instruct";
 
 export default function Engine({ onClose }: { onClose: () => void }) {
     const [selectedAsset, setSelectedAsset] = useState<'BTC' | 'XAU'>('BTC');
+    const [selectedTimeframe, setSelectedTimeframe] = useState<'15M' | '1H' | '4H' | '1D'>('15M');
     const [price, setPrice] = useState<number>(0);
     const [priceChange, setPriceChange] = useState<number>(0);
     const [chartData, setChartData] = useState<any[]>([]);
@@ -56,15 +57,24 @@ export default function Engine({ onClose }: { onClose: () => void }) {
         return () => ws.close();
     }, [selectedAsset]);
 
-    // Fetch chart data when asset changes
+    // Fetch chart data when asset or timeframe changes
     useEffect(() => {
         const fetchKlines = async () => {
             try {
                 const symbol = assetConfig[selectedAsset].symbol;
-                const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=15m&limit=50`);
+                const intervalMap: Record<string, string> = {
+                    '15M': '15m',
+                    '1H': '1h',
+                    '4H': '4h',
+                    '1D': '1d'
+                };
+                const binanceInterval = intervalMap[selectedTimeframe];
+                const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${binanceInterval}&limit=50`);
                 const data = await res.json();
                 const formatted = data.map((d: any) => ({
-                    time: new Date(d[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    time: selectedTimeframe === '1D'
+                        ? new Date(d[0]).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+                        : new Date(d[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     price: parseFloat(d[4])
                 }));
                 setChartData(formatted);
@@ -73,9 +83,10 @@ export default function Engine({ onClose }: { onClose: () => void }) {
             }
         };
         fetchKlines();
-        const interval = setInterval(fetchKlines, 15 * 60 * 1000);
+        const intervalMinutes = selectedTimeframe === '15M' ? 15 : selectedTimeframe === '1H' ? 60 : selectedTimeframe === '4H' ? 240 : 1440;
+        const interval = setInterval(fetchKlines, intervalMinutes * 60 * 1000);
         return () => clearInterval(interval);
-    }, [selectedAsset]);
+    }, [selectedAsset, selectedTimeframe]);
 
     // Timer countdown
     useEffect(() => {
@@ -424,7 +435,11 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                                 </div>
                                 <div className="flex bg-[#0A0D10] rounded-lg p-1 border border-[#1C2026]">
                                     {['15M', '1H', '4H', '1D'].map(tf => (
-                                        <button key={tf} className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${tf === '15M' ? 'bg-[#1C2026] text-white' : 'text-[#86909C] hover:text-white'}`}>
+                                        <button
+                                            key={tf}
+                                            onClick={() => setSelectedTimeframe(tf as '15M' | '1H' | '4H' | '1D')}
+                                            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${tf === selectedTimeframe ? 'bg-[#1C2026] text-white' : 'text-[#86909C] hover:text-white'}`}
+                                        >
                                             {tf}
                                         </button>
                                     ))}
