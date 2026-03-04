@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, Award, Target, Shield, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Award, Target, Shield, Clock, BarChart3, Activity } from 'lucide-react';
 
 interface Trade {
     srNo: number;
@@ -37,7 +37,6 @@ interface MonthData {
     };
 }
 
-// Optimized backtest data with higher win rates and returns
 const backtestData: MonthData[] = [
     {
         month: 'January',
@@ -123,6 +122,14 @@ const backtestData: MonthData[] = [
     }
 ];
 
+// GlassCard component for premium styling
+const GlassCard = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+    <div className={`relative bg-[#0d0f12]/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden ${className}`}>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#C6A84F]/5 via-transparent to-transparent opacity-50" />
+        <div className="relative z-10">{children}</div>
+    </div>
+);
+
 export default function BacktestSection() {
     const [activeMonth, setActiveMonth] = useState(0);
     const currentData = backtestData[activeMonth];
@@ -152,7 +159,7 @@ export default function BacktestSection() {
                             onClick={() => setActiveMonth(idx)}
                             className={`px-6 py-3 rounded-xl font-bold text-sm tracking-wider transition-all ${activeMonth === idx
                                     ? 'bg-[#C6A84F] text-[#0A0D10] shadow-[0_0_20px_rgba(198,168,79,0.4)]'
-                                    : 'bg-[#1C2026] text-[#86909C] border border-[#2B313A] hover:border-[#C6A84F]/50'
+                                    : 'bg-[#0d0f12] text-[#86909C] border border-white/[0.08] hover:border-[#C6A84F]/50'
                                 }`}
                         >
                             {data.month} {data.year}
@@ -160,32 +167,39 @@ export default function BacktestSection() {
                     ))}
                 </div>
 
-                {/* Performance Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-                    <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-6">
-                        <div className="text-[#86909C] text-xs uppercase tracking-wider mb-2">Total PnL</div>
-                        <div className="text-2xl font-bold text-[#00E676]">{currentData.chart.totalPnL}</div>
-                        <div className="text-xs text-[#00E676]/70">{currentData.summary.returnPct}</div>
-                    </div>
-                    <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-6">
-                        <div className="text-[#86909C] text-xs uppercase tracking-wider mb-2">Account Balance</div>
-                        <div className="text-2xl font-bold text-white">{currentData.chart.accountBalance}</div>
-                        <div className="text-xs text-[#00E676]/70">From {currentData.chart.startBalance}</div>
-                    </div>
-                    <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-6">
-                        <div className="text-[#86909C] text-xs uppercase tracking-wider mb-2">Win Rate</div>
-                        <div className="text-2xl font-bold text-[#C6A84F]">{currentData.chart.winRate}</div>
-                        <div className="text-xs text-[#86909C]">{currentData.summary.wins}W / {currentData.summary.losses}L</div>
-                    </div>
-                    <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-6">
-                        <div className="text-[#86909C] text-xs uppercase tracking-wider mb-2">Net R</div>
-                        <div className="text-2xl font-bold text-[#00E676]">{currentData.summary.netR}</div>
-                        <div className="text-xs text-[#86909C]">R-Multiple</div>
-                    </div>
+                {/* Performance Cards - Premium Landing Page Style */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+                    <GlassCard className="p-8 flex flex-col items-center text-center group">
+                        <BarChart3 className="w-8 h-8 text-[#C6A84F] mb-4 group-hover:scale-110 transition-transform duration-300" />
+                        <div className="text-[10px] text-[#86909C] font-bold tracking-widest uppercase mb-2">Total PnL</div>
+                        <div className="font-serif text-4xl text-[#00E676] font-medium tracking-tighter">{currentData.chart.totalPnL}</div>
+                        <div className="text-xs text-[#00E676]/70 mt-1">{currentData.summary.returnPct}</div>
+                    </GlassCard>
+
+                    <GlassCard className="p-8 flex flex-col items-center text-center group">
+                        <Shield className="w-8 h-8 text-[#C6A84F] mb-4 group-hover:scale-110 transition-transform duration-300" />
+                        <div className="text-[10px] text-[#86909C] font-bold tracking-widest uppercase mb-2">Account Balance</div>
+                        <div className="font-serif text-4xl text-white font-medium tracking-tighter">{currentData.chart.accountBalance}</div>
+                        <div className="text-xs text-[#00E676]/70 mt-1">From {currentData.chart.startBalance}</div>
+                    </GlassCard>
+
+                    <GlassCard className="p-8 flex flex-col items-center text-center group">
+                        <Activity className="w-8 h-8 text-[#C6A84F] mb-4 group-hover:scale-110 transition-transform duration-300" />
+                        <div className="text-[10px] text-[#86909C] font-bold tracking-widest uppercase mb-2">Win Rate</div>
+                        <div className="font-serif text-4xl text-[#C6A84F] font-medium tracking-tighter">{currentData.chart.winRate}</div>
+                        <div className="text-xs text-[#86909C] mt-1">{currentData.summary.wins}W / {currentData.summary.losses}L</div>
+                    </GlassCard>
+
+                    <GlassCard className="p-8 flex flex-col items-center text-center group">
+                        <Target className="w-8 h-8 text-[#C6A84F] mb-4 group-hover:scale-110 transition-transform duration-300" />
+                        <div className="text-[10px] text-[#86909C] font-bold tracking-widest uppercase mb-2">Net R</div>
+                        <div className="font-serif text-4xl text-[#00E676] font-medium tracking-tighter">{currentData.summary.netR}</div>
+                        <div className="text-xs text-[#86909C] mt-1">R-Multiple</div>
+                    </GlassCard>
                 </div>
 
                 {/* Equity Curve Placeholder */}
-                <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-8 mb-12">
+                <GlassCard className="p-8 mb-12">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-white font-semibold text-lg">Equity Curve</h3>
                         <div className="flex gap-2">
@@ -193,17 +207,17 @@ export default function BacktestSection() {
                             <span className="text-xs text-[#86909C] px-3 py-1 bg-[#1C2026] rounded-full">Day</span>
                         </div>
                     </div>
-                    <div className="h-64 bg-gradient-to-b from-[#C6A84F]/5 to-transparent rounded-xl border border-[#1C2026] flex items-center justify-center">
+                    <div className="h-64 bg-gradient-to-b from-[#C6A84F]/5 to-transparent rounded-xl border border-white/[0.08] flex items-center justify-center">
                         <div className="text-center">
                             <div className="text-[#C6A84F] text-sm mb-2">Performance Chart</div>
                             <div className="text-[#86909C] text-xs">Avg RR: {currentData.chart.avgRR} | Max RR: {currentData.chart.maxRR}</div>
                         </div>
                     </div>
-                </div>
+                </GlassCard>
 
-                {/* Trades Table */}
-                <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl overflow-hidden">
-                    <div className="p-6 border-b border-[#1C2026]">
+                {/* Trades Table - Premium Style */}
+                <GlassCard className="overflow-hidden">
+                    <div className="p-6 border-b border-white/[0.08]">
                         <h3 className="text-white font-semibold text-lg flex items-center gap-2">
                             <Target className="w-5 h-5 text-[#C6A84F]" />
                             Trade History
@@ -212,24 +226,24 @@ export default function BacktestSection() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-[#1C2026]/50 text-[#86909C] text-xs uppercase tracking-wider">
-                                    <th className="px-6 py-4">#</th>
-                                    <th className="px-6 py-4">Time</th>
-                                    <th className="px-6 py-4">Hold</th>
-                                    <th className="px-6 py-4">Direction</th>
-                                    <th className="px-6 py-4">Result</th>
-                                    <th className="px-6 py-4">R:R</th>
-                                    <th className="px-6 py-4">Entry</th>
-                                    <th className="px-6 py-4">SL</th>
-                                    <th className="px-6 py-4">TP</th>
+                                <tr className="bg-[#C6A84F]/5 text-[#C6A84F] text-[10px] uppercase tracking-wider">
+                                    <th className="px-6 py-4 font-semibold">#</th>
+                                    <th className="px-6 py-4 font-semibold">Time</th>
+                                    <th className="px-6 py-4 font-semibold">Hold</th>
+                                    <th className="px-6 py-4 font-semibold">Direction</th>
+                                    <th className="px-6 py-4 font-semibold">Result</th>
+                                    <th className="px-6 py-4 font-semibold">R:R</th>
+                                    <th className="px-6 py-4 font-semibold">Entry</th>
+                                    <th className="px-6 py-4 font-semibold">SL</th>
+                                    <th className="px-6 py-4 font-semibold">TP</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm">
-                                {currentData.trades.map((trade) => (
-                                    <tr key={trade.srNo} className="border-b border-[#1C2026]/50 hover:bg-[#1C2026]/30 transition-colors">
+                                {currentData.trades.map((trade, index) => (
+                                    <tr key={trade.srNo} className={`border-b border-white/[0.05] hover:bg-[#C6A84F]/5 transition-colors ${index % 2 === 0 ? 'bg-[#0d0f12]/50' : ''}`}>
                                         <td className="px-6 py-4 text-[#86909C]">{trade.srNo}</td>
                                         <td className="px-6 py-4">
-                                            <div className="text-white">{trade.timeEntered}</div>
+                                            <div className="text-white font-medium">{trade.timeEntered}</div>
                                             <div className="text-[#86909C] text-xs">→ {trade.timeExited}</div>
                                         </td>
                                         <td className="px-6 py-4 text-[#86909C]">{trade.holdTime}</td>
@@ -240,8 +254,8 @@ export default function BacktestSection() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${trade.result === 'WIN' ? 'bg-[#00E676]/10 text-[#00E676]' : 'bg-red-500/10 text-red-500'}`}>
-                                                {trade.result === 'WIN' ? '✅ WIN' : '❌ LOSS'}
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${trade.result === 'WIN' ? 'bg-[#00E676]/10 text-[#00E676] border border-[#00E676]/30' : 'bg-red-500/10 text-red-500 border border-red-500/30'}`}>
+                                                {trade.result === 'WIN' ? '✓ WIN' : '✗ LOSS'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 font-mono font-bold text-[#C6A84F]">{trade.rr}</td>
@@ -253,51 +267,51 @@ export default function BacktestSection() {
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </GlassCard>
 
-                {/* Summary Stats */}
+                {/* Summary Stats - Premium Style */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
-                    <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-8">
+                    <GlassCard className="p-8">
                         <h4 className="text-white font-semibold mb-6 flex items-center gap-2">
                             <Shield className="w-5 h-5 text-[#C6A84F]" />
                             Performance Summary
                         </h4>
                         <div className="space-y-4">
-                            <div className="flex justify-between items-center py-3 border-b border-[#1C2026]">
+                            <div className="flex justify-between items-center py-3 border-b border-white/[0.08]">
                                 <span className="text-[#86909C]">Total Trades</span>
-                                <span className="text-white font-bold">{currentData.summary.totalTrades}</span>
+                                <span className="text-white font-bold font-serif text-lg">{currentData.summary.totalTrades}</span>
                             </div>
-                            <div className="flex justify-between items-center py-3 border-b border-[#1C2026]">
+                            <div className="flex justify-between items-center py-3 border-b border-white/[0.08]">
                                 <span className="text-[#86909C]">Win Rate</span>
-                                <span className="text-[#00E676] font-bold">{currentData.summary.winRate}</span>
+                                <span className="text-[#00E676] font-bold font-serif text-lg">{currentData.summary.winRate}</span>
                             </div>
-                            <div className="flex justify-between items-center py-3 border-b border-[#1C2026]">
+                            <div className="flex justify-between items-center py-3 border-b border-white/[0.08]">
                                 <span className="text-[#86909C]">Net R Multiple</span>
-                                <span className="text-[#00E676] font-bold">{currentData.summary.netR}</span>
+                                <span className="text-[#00E676] font-bold font-serif text-lg">{currentData.summary.netR}</span>
                             </div>
                         </div>
-                    </div>
+                    </GlassCard>
 
-                    <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-8">
+                    <GlassCard className="p-8">
                         <h4 className="text-white font-semibold mb-6 flex items-center gap-2">
                             <Clock className="w-5 h-5 text-[#C6A84F]" />
                             R-Metrics
                         </h4>
                         <div className="space-y-4">
-                            <div className="flex justify-between items-center py-3 border-b border-[#1C2026]">
+                            <div className="flex justify-between items-center py-3 border-b border-white/[0.08]">
                                 <span className="text-[#86909C]">Average R:R</span>
-                                <span className="text-white font-bold">{currentData.chart.avgRR}</span>
+                                <span className="text-white font-bold font-serif text-lg">{currentData.chart.avgRR}</span>
                             </div>
-                            <div className="flex justify-between items-center py-3 border-b border-[#1C2026]">
+                            <div className="flex justify-between items-center py-3 border-b border-white/[0.08]">
                                 <span className="text-[#86909C]">Max R:R</span>
-                                <span className="text-[#C6A84F] font-bold">{currentData.chart.maxRR}</span>
+                                <span className="text-[#C6A84F] font-bold font-serif text-lg">{currentData.chart.maxRR}</span>
                             </div>
-                            <div className="flex justify-between items-center py-3 border-b border-[#1C2026]">
+                            <div className="flex justify-between items-center py-3 border-b border-white/[0.08]">
                                 <span className="text-[#86909C]">R Model</span>
                                 <span className="text-white font-bold">+2R to +4R / -1R</span>
                             </div>
                         </div>
-                    </div>
+                    </GlassCard>
                 </div>
             </div>
         </section>
