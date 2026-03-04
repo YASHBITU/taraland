@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, ChevronLeft, ChevronRight, Activity, Shield, Zap, CircleDot, BarChart3, Lock, Globe, Twitter, Send, Linkedin, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Activity, Shield, Zap, CircleDot, BarChart3, Lock, Globe, X } from 'lucide-react';
 import { useMarketData } from './hooks/useMarketData';
 import { AnimatedCounter } from './components/ui/AnimatedCounter';
 import { GlassCard } from './components/ui/GlassCard';
@@ -125,7 +125,6 @@ export default function App() {
 
           <div className="hidden lg:flex items-center gap-8 text-sm font-medium text-text-secondary uppercase tracking-widest">
             <a href="#backtest" className="hover:text-gold-light transition-colors">Backtest</a>
-            <a href="#backtest" className="hover:text-gold-light transition-colors">Results</a>
             <a href="#advantages" className="hover:text-gold-light transition-colors">Advantages</a>
             <a href="#standard" className="hover:text-gold-light transition-colors">Standard</a>
             <a href="#getstarted" className="hover:text-gold-light transition-colors">Get Started</a>
@@ -448,58 +447,28 @@ export default function App() {
       {/* FOOTER */}
       <footer className="border-t border-white/5 bg-bg-secondary pt-16 lg:pt-24 pb-12 relative z-20">
         <div className="max-w-7xl mx-auto px-4 lg:px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-16 mb-16 lg:mb-20">
-            <div className="lg:col-span-2">
-              <div className="flex items-center gap-3 mb-6 lg:mb-8 group cursor-pointer w-max">
-                <div className="w-8 h-8 lg:w-10 lg:h-10 rounded bg-gradient-gold flex items-center justify-center">
-                  <Activity className="w-5 h-5 lg:w-6 lg:h-6 text-bg-primary" />
-                </div>
-                <span className="font-serif font-bold text-xl lg:text-2xl tracking-tighter text-white">TARA ALGO <span className="text-gold-light font-medium tracking-normal">PRO</span></span>
+          <div className="flex flex-col items-center text-center mb-12 lg:mb-16">
+            <div className="flex items-center gap-3 mb-6 lg:mb-8 group cursor-pointer w-max">
+              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded bg-gradient-gold flex items-center justify-center">
+                <Activity className="w-5 h-5 lg:w-6 lg:h-6 text-bg-primary" />
               </div>
-              <p className="text-text-secondary text-xs lg:text-sm leading-relaxed font-light max-w-sm">
-                The pinnacle of institutional XAU/USD trading algorithms. Precision, performance, and professional-grade security for the global elite.
-              </p>
+              <span className="font-serif font-bold text-xl lg:text-2xl tracking-tighter text-white">TARA ALGO <span className="text-gold-light font-medium tracking-normal">PRO</span></span>
             </div>
-
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 lg:col-span-3">
-              <div>
-                <h4 className="font-bold tracking-widest mb-6 lg:mb-8 text-white text-xs lg:text-sm">ECOSYSTEM</h4>
-                <ul className="space-y-3 lg:space-y-4 text-xs lg:text-sm text-text-secondary font-medium">
-                  <li><a href="#" className="hover:text-gold-light transition-colors">Strategy Engine</a></li>
-                  <li><a href="#" className="hover:text-gold-light transition-colors">Verified Backtests</a></li>
-                  <li><a href="#" className="hover:text-gold-light transition-colors">Yield Pricing</a></li>
-                  <li><a href="#" className="hover:text-gold-light transition-colors">Enterprise Support</a></li>
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-bold tracking-widest mb-6 lg:mb-8 text-white text-xs lg:text-sm">RESOURCES</h4>
-                <ul className="space-y-3 lg:space-y-4 text-xs lg:text-sm text-text-secondary font-medium">
-                  <li><a href="#" className="hover:text-gold-light transition-colors">Market Intelligence</a></li>
-                  <li><a href="#" className="hover:text-gold-light transition-colors">REST API Docs</a></li>
-                  <li><a href="#" className="hover:text-gold-light transition-colors">Institutional Deck</a></li>
-                  <li><a href="#" className="hover:text-gold-light transition-colors">Security Audit</a></li>
-                </ul>
-              </div>
-
-              <div className="col-span-2 lg:col-span-1">
-                <h4 className="font-bold tracking-widest mb-6 lg:mb-8 text-white text-xs lg:text-sm">CONNECT</h4>
-                <ul className="space-y-3 lg:space-y-4 text-xs lg:text-sm text-text-secondary font-medium flex flex-wrap gap-4 lg:gap-0 lg:flex-col">
-                  <li className="w-full lg:w-auto"><a href="#" className="hover:text-gold-light transition-colors flex items-center gap-2 lg:gap-3"><Send className="w-3.5 h-3.5 lg:w-4 lg:h-4" /> Discord</a></li>
-                  <li className="w-full lg:w-auto"><a href="#" className="hover:text-gold-light transition-colors flex items-center gap-2 lg:gap-3"><Twitter className="w-3.5 h-3.5 lg:w-4 lg:h-4" /> X (Twitter)</a></li>
-                  <li className="w-full lg:w-auto"><a href="#" className="hover:text-gold-light transition-colors flex items-center gap-2 lg:gap-3"><Linkedin className="w-3.5 h-3.5 lg:w-4 lg:h-4" /> LinkedIn</a></li>
-                </ul>
-              </div>
-            </div>
+            <p className="text-text-secondary text-xs lg:text-sm leading-relaxed font-light max-w-md mb-6">
+              The pinnacle of institutional XAU/USD trading algorithms. Precision, performance, and professional-grade security for the global elite.
+            </p>
+            <a
+              href="https://yashbitu.xyz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gold-light hover:text-gold-dark transition-colors text-sm font-medium tracking-wider"
+            >
+              Created by @yashbitu.xyz
+            </a>
           </div>
 
-          <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between text-[10px] lg:text-xs text-text-secondary font-medium tracking-wide">
+          <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-center text-[10px] lg:text-xs text-text-secondary font-medium tracking-wide">
             <p>&copy; {new Date().getFullYear()} TARA ALGO PRO. All rights reserved.</p>
-            <div className="flex gap-4 lg:gap-8 mt-4 md:mt-0">
-              <a href="#" className="hover:text-white transition-colors">Privacy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms</a>
-              <a href="#" className="hover:text-white transition-colors">Risk Disclosure</a>
-            </div>
           </div>
         </div>
       </footer>
