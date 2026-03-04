@@ -227,7 +227,6 @@ export default function VisionEngine({ onClose }: { onClose: () => void }) {
                 .insert({
                     user_id: userId,
                     asset: scanData.extractedTicker || 'UNKNOWN',
-                    scan_type: scanData.pattern || 'ANALYSIS',
                     bias: scanData.bias || scanData.expectedDirection || 'NEUTRAL',
                     entry_zone: scanData.entryZone || '0',
                     stop_loss: scanData.stopLoss || '0',

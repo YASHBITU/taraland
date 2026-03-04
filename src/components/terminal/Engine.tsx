@@ -240,7 +240,6 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                 .insert({
                     user_id: userId,
                     asset: assetConfig[selectedAsset].display,
-                    scan_type: 'COUNCIL_ANALYSIS',
                     bias: scanData.bias || 'NEUTRAL',
                     entry_zone: scanData.entry?.toString() || '0',
                     stop_loss: scanData.sl?.toString() || '0',
