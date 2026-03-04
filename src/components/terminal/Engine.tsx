@@ -245,7 +245,7 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                     entry_zone: scanData.entry?.toString() || '0',
                     stop_loss: scanData.sl?.toString() || '0',
                     take_profit: scanData.tp?.toString() || '0',
-                    confidence: scanData.confidence || 'MEDIUM',
+                    confidence: typeof scanData.confidence === 'number' ? scanData.confidence : 50,
                     risk_to_reward: scanData.rr || 'N/A',
                     created_at: new Date().toISOString()
                 })

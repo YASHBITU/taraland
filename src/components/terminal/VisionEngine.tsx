@@ -232,7 +232,7 @@ export default function VisionEngine({ onClose }: { onClose: () => void }) {
                     entry_zone: scanData.entryZone || '0',
                     stop_loss: scanData.stopLoss || '0',
                     take_profit: scanData.targetZone || '0',
-                    confidence: scanData.confidence?.toString() || '0',
+                    confidence: typeof scanData.confidence === 'number' ? scanData.confidence : parseInt(scanData.confidence) || 50,
                     risk_to_reward: scanData.riskToReward || 'N/A',
                     thesis: scanData.thesis || '',
                     created_at: new Date().toISOString()
