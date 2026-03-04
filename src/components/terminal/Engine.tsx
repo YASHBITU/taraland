@@ -1,27 +1,22 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { Activity, X, ChevronRight, TrendingUp, TrendingDown, DollarSign, Clock, ShieldAlert, Cpu } from 'lucide-react';
+import { Activity, X, ChevronRight, TrendingUp, TrendingDown, Clock, ShieldAlert, Cpu } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import ScanHistory from './ScanHistory';
+
 
 // Models
 const ANALYST_MODELS = [
     "Qwen/Qwen3-8B",
     "THUDM/glm-4-9b-chat",
-    "THUDM/GLM-4-9B-0414",
-    "THUDM/GLM-Z1-9B-0414"
+    "THUDM/GLM-4-9B-0414"
 ];
-const JUDGE_MODEL = "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B";
+const JUDGE_MODEL = "Qwen/Qwen2.5-7B-Instruct";
 
-interface Signal {
-    time: string;
-    bias: string;
-    entry: number;
-    sl: number;
-    tp: number;
-    status: string;
-}
+
 
 export default function Engine({ onClose }: { onClose: () => void }) {
+    const [selectedAsset, setSelectedAsset] = useState<'BTC' | 'XAU'>('BTC');
     const [price, setPrice] = useState<number>(0);
     const [priceChange, setPriceChange] = useState<number>(0);
     const [chartData, setChartData] = useState<any[]>([]);
@@ -31,7 +26,14 @@ export default function Engine({ onClose }: { onClose: () => void }) {
 
     const [reports, setReports] = useState<Record<string, { status: string, raw: string }>>({});
     const [judgeVerdict, setJudgeVerdict] = useState<any>(null);
-    const [history, setHistory] = useState<Signal[]>([]);
+    const [history, setHistory] = useState<any[]>([]);
+    const [scanTrigger, setScanTrigger] = useState(0);
+
+    // Asset configuration
+    const assetConfig = {
+        BTC: { symbol: 'BTCUSDT', wsSymbol: 'btcusdt', display: 'BTC / USDT', icon: 'https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=024' },
+        XAU: { symbol: 'PAXGUSDT', wsSymbol: 'paxgusdt', display: 'XAU / USD', icon: 'https://cryptologos.cc/logos/paxos-standard-pax-logo.svg?v=024' }
+    };
 
     // Initialize reports state
     useEffect(() => {
@@ -44,20 +46,22 @@ export default function Engine({ onClose }: { onClose: () => void }) {
 
     // WebSocket for Live Price
     useEffect(() => {
-        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
+        const wsSymbol = assetConfig[selectedAsset].wsSymbol;
+        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${wsSymbol}@ticker`);
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             setPrice(parseFloat(data.c));
             setPriceChange(parseFloat(data.P));
         };
         return () => ws.close();
-    }, []);
+    }, [selectedAsset]);
 
-    // Fetch initial chart data
+    // Fetch chart data when asset changes
     useEffect(() => {
         const fetchKlines = async () => {
             try {
-                const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=50');
+                const symbol = assetConfig[selectedAsset].symbol;
+                const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=15m&limit=50`);
                 const data = await res.json();
                 const formatted = data.map((d: any) => ({
                     time: new Date(d[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -71,7 +75,7 @@ export default function Engine({ onClose }: { onClose: () => void }) {
         fetchKlines();
         const interval = setInterval(fetchKlines, 15 * 60 * 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedAsset]);
 
     // Timer countdown
     useEffect(() => {
@@ -89,6 +93,11 @@ export default function Engine({ onClose }: { onClose: () => void }) {
 
     const callSiliconFlow = async (model: string, systemPrompt: string, userPrompt: string) => {
         const API_KEY = import.meta.env.VITE_SILICONFLOW_API_KEY;
+
+        if (!API_KEY || API_KEY === 'YOUR_API_KEY' || API_KEY === 'placeholder') {
+            throw new Error('API Key not configured. Please add VITE_SILICONFLOW_API_KEY to your .env file.');
+        }
+
         const res = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -104,13 +113,23 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                 max_tokens: 500
             })
         });
-        if (!res.ok) throw new Error(`Model Error: ${res.status}`);
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error(`SiliconFlow API Error ${res.status}:`, errorText);
+            if (res.status === 403) {
+                throw new Error('API Key invalid or expired. Please check your VITE_SILICONFLOW_API_KEY in .env file.');
+            }
+            throw new Error(`Model Error: ${res.status} - ${errorText}`);
+        }
+
         const data = await res.json();
         return data.choices[0]?.message?.content || "";
     };
 
     const getMarketIntel = async () => {
-        const res = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=5');
+        const symbol = assetConfig[selectedAsset].symbol;
+        const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=5`);
         const data = await res.json();
         return data.map((d: any) => `C:${d[4]} H:${d[2]} L:${d[3]}`).join(' | ');
     };
@@ -122,7 +141,8 @@ export default function Engine({ onClose }: { onClose: () => void }) {
 
         try {
             const intel = await getMarketIntel();
-            const userPrompt = `BTC @ $${price}\nMarket Context (1H): ${intel}\nOutput ONLY: Bias (LONG/SHORT), Entry price, Stop Loss, Take Profit. Be purely objective.`;
+            const assetName = assetConfig[selectedAsset].display;
+            const userPrompt = `${assetName} @ $${price}\nMarket Context (1H): ${intel}\nOutput ONLY: Bias (LONG/SHORT), Entry price, Stop Loss, Take Profit. Be purely objective.`;
 
             // Run Analysts
             const newReports = { ...reports };
@@ -146,7 +166,7 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                 allIntel += `[${m}]: ${newReports[m].raw}\n`;
             }
 
-            const judgePrompt = `Current BTC Price: ${price}\n\nAnalyst Reports:\n${allIntel}\n\nReturn consolidated JSON ONLY.`;
+            const judgePrompt = `Current ${assetConfig[selectedAsset].display} Price: ${price}\n\nAnalyst Reports:\n${allIntel}\n\nReturn consolidated JSON ONLY.`;
 
             const rawJudge = await callSiliconFlow(JUDGE_MODEL, judgeSystem, judgePrompt);
 
@@ -167,7 +187,7 @@ export default function Engine({ onClose }: { onClose: () => void }) {
             const risk = Math.abs(parseFloat(jData.entry) - parseFloat(jData.sl)) || 1;
             const reward = Math.abs(parseFloat(jData.tp) - parseFloat(jData.entry));
             const rr = (reward / risk).toFixed(2);
-            const status = parseFloat(rr) >= 1.5 ? "EXECUTE" : "VETO";
+            const status = parseFloat(rr) >= 1.5 ? "EXECUTE" : "INVALIDATED";
 
             const verdict = {
                 bias: jData.bias?.toUpperCase() || "STAY AWAY",
@@ -181,6 +201,7 @@ export default function Engine({ onClose }: { onClose: () => void }) {
 
             setJudgeVerdict(verdict);
 
+            // Save scan to local history
             setHistory(prev => [{
                 time: new Date().toLocaleTimeString(),
                 bias: verdict.bias,
@@ -190,11 +211,55 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                 status: verdict.status
             }, ...prev].slice(0, 6));
 
+            // Save scan to Supabase
+            await saveScanToSupabase(verdict);
+
+            // Trigger ScanHistory refresh
+            setScanTrigger(prev => prev + 1);
+
         } catch (error) {
             console.error(error);
         } finally {
             setIsScanning(false);
             setCountdown(600);
+        }
+    };
+
+    const saveScanToSupabase = async (scanData: any) => {
+        try {
+            const { supabase } = await import('../../lib/supabase');
+            const { data: { session } } = await supabase.auth.getSession();
+
+            // Use authenticated user ID or anonymous ID
+            const userId = session?.user?.id || '00000000-0000-0000-0000-000000000000';
+
+            console.log('Attempting to save scan to Supabase...', scanData);
+
+            const { data, error } = await supabase
+                .from('ai_scans')
+                .insert({
+                    user_id: userId,
+                    asset: assetConfig[selectedAsset].display,
+                    scan_type: 'COUNCIL_ANALYSIS',
+                    bias: scanData.bias || 'NEUTRAL',
+                    entry_zone: scanData.entry?.toString() || '0',
+                    stop_loss: scanData.sl?.toString() || '0',
+                    take_profit: scanData.tp?.toString() || '0',
+                    confidence: scanData.confidence || 'MEDIUM',
+                    risk_to_reward: scanData.rr || 'N/A',
+                    created_at: new Date().toISOString()
+                })
+                .select();
+
+            if (error) {
+                console.error('Error saving scan to Supabase:', error.message, error.details);
+                alert('Failed to save scan: ' + error.message);
+            } else {
+                console.log('Scan saved to Supabase successfully:', data);
+            }
+        } catch (err: any) {
+            console.error('Failed to save scan to Supabase:', err);
+            alert('Exception saving scan: ' + err.message);
         }
     };
 
@@ -210,16 +275,12 @@ export default function Engine({ onClose }: { onClose: () => void }) {
 
                     <div className="hidden md:flex gap-6 text-sm font-medium">
                         <button className="text-white border-b-2 border-[#00E676] pb-5 pt-5">Dashboard</button>
-                        <button className="hover:text-white transition-colors">Council Reports</button>
-                        <button className="hover:text-white transition-colors">Risk Desk</button>
+
                     </div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <div className="bg-[#1C2026] px-4 py-1.5 rounded-full flex items-center gap-2 border border-[#2B313A]">
-                        <div className="w-2 h-2 rounded-full bg-[#00E676] animate-pulse"></div>
-                        <span className="text-xs font-mono text-[#E5E7EB]">Next Scan: {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}</span>
-                    </div>
+
                     <button onClick={onClose} className="p-2 hover:bg-[#1C2026] rounded-lg transition-colors">
                         <X className="w-5 h-5 text-[#86909C]" />
                     </button>
@@ -233,12 +294,58 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                     {/* LEFT COLUMN: SWAP / VERDICT WIDGET */}
                     <div className="lg:col-span-3 space-y-6">
                         <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-5 shadow-2xl">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-white font-semibold">Judge Verdict</h2>
-                                <button onClick={runScan} disabled={isScanning} className="bg-[#1C2026] hover:bg-[#2B313A] border border-[#2B313A] text-white text-xs px-3 py-1.5 rounded-md transition-all flex items-center gap-1">
-                                    {isScanning ? <Cpu className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
-                                    {isScanning ? 'Scanning' : 'Scan Now'}
+                            <div className="mb-6">
+                                <h2 className="text-white font-semibold mb-4">Judge Verdict</h2>
+
+                                {/* Asset Selection */}
+                                <div className="flex gap-2 mb-4">
+                                    <button
+                                        onClick={() => setSelectedAsset('BTC')}
+                                        className={`flex-1 text-xs py-2 rounded-lg transition-all font-bold ${selectedAsset === 'BTC'
+                                            ? 'bg-[#1C2026] border border-[#C6A84F] text-[#C6A84F]'
+                                            : 'bg-[#0A0D10] border border-[#2B313A] text-[#86909C] hover:border-[#C6A84F]/50 hover:text-[#C6A84F]'
+                                            }`}
+                                    >
+                                        BTC/USDT
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedAsset('XAU')}
+                                        className={`flex-1 text-xs py-2 rounded-lg transition-all font-bold ${selectedAsset === 'XAU'
+                                            ? 'bg-[#1C2026] border border-[#C6A84F] text-[#C6A84F]'
+                                            : 'bg-[#0A0D10] border border-[#2B313A] text-[#86909C] hover:border-[#C6A84F]/50 hover:text-[#C6A84F]'
+                                            }`}
+                                    >
+                                        XAU/USD
+                                    </button>
+                                </div>
+
+                                {/* Attractive Gold Scan Button */}
+                                <button
+                                    onClick={runScan}
+                                    disabled={isScanning}
+                                    className={`w-full py-4 rounded-xl font-bold text-sm uppercase tracking-wider transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 ${isScanning
+                                        ? 'bg-[#1C2026] text-[#86909C] cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-[#C6A84F] via-[#D4B76A] to-[#C6A84F] text-[#0A0D10] shadow-[0_0_30px_rgba(198,168,79,0.4)] hover:shadow-[0_0_40px_rgba(198,168,79,0.6)]'
+                                        }`}
+                                >
+                                    {isScanning ? (
+                                        <>
+                                            <Cpu className="w-5 h-5 animate-spin" />
+                                            ANALYZING MARKET...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Activity className="w-5 h-5" />
+                                            INITIATE QUANTUM SCAN
+                                        </>
+                                    )}
                                 </button>
+
+                                {/* Next Scan Timer */}
+                                <div className="flex items-center justify-center gap-2 mt-3 text-[10px] text-[#86909C]">
+                                    <Clock className="w-3 h-3" />
+                                    Auto-scan in {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')}
+                                </div>
                             </div>
 
                             {judgeVerdict ? (
@@ -299,11 +406,11 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 bg-[#1C2026] rounded-full flex items-center justify-center p-2">
-                                        <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=024" className="w-full h-full" alt="BTC" />
+                                        <img src={assetConfig[selectedAsset].icon} className="w-full h-full" alt={selectedAsset} />
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                                            BTC / USDT
+                                            {assetConfig[selectedAsset].display}
                                             <span className="text-xs bg-[#1C2026] px-2 py-0.5 rounded text-[#86909C]">Perp</span>
                                         </h2>
                                         <div className="flex items-center gap-3">
@@ -371,48 +478,8 @@ export default function Engine({ onClose }: { onClose: () => void }) {
                                 </div>
                             </div>
 
-                            {/* SIGNAL HISTORY */}
-                            <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-5 shadow-xl flex flex-col h-full min-w-0">
-                                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-[#00E676]" />
-                                    Trade Signal History
-                                </h3>
-
-                                <div className="flex-1 w-full overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="border-b border-[#1C2026] text-xs text-[#86909C] uppercase tracking-wider">
-                                                <th className="pb-3 font-medium">Time</th>
-                                                <th className="pb-3 font-medium">Bias</th>
-                                                <th className="pb-3 font-medium">Entry</th>
-                                                <th className="pb-3 font-medium text-right">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="text-sm">
-                                            {history.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={4} className="py-8 text-center text-xs text-[#2B313A]">No signals in current session</td>
-                                                </tr>
-                                            ) : (
-                                                history.map((sig, idx) => (
-                                                    <tr key={idx} className="border-b border-[#1C2026]/50 last:border-0 hover:bg-[#1C2026]/30 transition-colors">
-                                                        <td className="py-3 text-[#86909C]">{sig.time}</td>
-                                                        <td className={`py-3 font-semibold ${sig.bias.includes('LONG') ? 'text-[#00E676]' : sig.bias.includes('SHORT') ? 'text-red-500' : 'text-gray-400'}`}>
-                                                            {sig.bias}
-                                                        </td>
-                                                        <td className="py-3 text-white font-mono">${sig.entry.toLocaleString()}</td>
-                                                        <td className="py-3 text-right">
-                                                            <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${sig.status === 'EXECUTE' ? 'bg-[#00E676]/10 text-[#00E676]' : 'bg-[#2B313A] text-gray-400'}`}>
-                                                                {sig.status}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                            {/* SCAN HISTORY FROM SUPABASE */}
+                            <ScanHistory refreshTrigger={scanTrigger} />
                         </div>
 
                     </div>
