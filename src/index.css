@@ -13,6 +13,10 @@
   --color-text-secondary: #9A9A9A;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -36,7 +40,7 @@ body {
 .border-gradient-gold {
   border: 1px solid transparent;
   background: linear-gradient(var(--color-bg-secondary), var(--color-bg-secondary)) padding-box,
-              linear-gradient(to right, rgba(198, 168, 79, 0.3), rgba(242, 217, 138, 0.3)) border-box;
+    linear-gradient(to right, rgba(198, 168, 79, 0.3), rgba(242, 217, 138, 0.3)) border-box;
 }
 
 .glass-panel {
@@ -63,8 +67,13 @@ body {
 
 /* Ticker Animation */
 @keyframes ticker {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 .animate-ticker {
@@ -74,7 +83,7 @@ body {
 /* Grid Background */
 .bg-grid-pattern {
   background-size: 30px 30px;
-  background-image: 
+  background-image:
     linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
 }
@@ -83,6 +92,7 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -90,8 +100,13 @@ body {
 
 /* Shimmer Sweep Animation */
 @keyframes shimmer {
-  0% { transform: translateX(-150%) skewX(-15deg); }
-  100% { transform: translateX(200%) skewX(-15deg); }
+  0% {
+    transform: translateX(-150%) skewX(-15deg);
+  }
+
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+  }
 }
 
 .shimmer-sweep {
@@ -102,9 +117,9 @@ body {
 .shimmer-sweep::after {
   content: '';
   position: absolute;
-  top: 0; 
+  top: 0;
   left: 0;
-  width: 50%; 
+  width: 50%;
   height: 100%;
   background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.5), transparent);
   animation: shimmer 3s infinite;

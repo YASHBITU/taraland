@@ -124,10 +124,11 @@ export default function App() {
           </div>
 
           <div className="hidden lg:flex items-center gap-8 text-sm font-medium text-text-secondary uppercase tracking-widest">
-            <a href="#strategy" className="hover:text-gold-light transition-colors">Strategy</a>
-            <a href="#performance" className="hover:text-gold-light transition-colors">Performance</a>
-            <a href="#institutions" className="hover:text-gold-light transition-colors">Institutions</a>
-            <a href="#faq" className="hover:text-gold-light transition-colors">FAQ</a>
+            <a href="#backtest" className="hover:text-gold-light transition-colors">Backtest</a>
+            <a href="#backtest" className="hover:text-gold-light transition-colors">Results</a>
+            <a href="#advantages" className="hover:text-gold-light transition-colors">Advantages</a>
+            <a href="#standard" className="hover:text-gold-light transition-colors">Standard</a>
+            <a href="#getstarted" className="hover:text-gold-light transition-colors">Get Started</a>
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4">
@@ -295,7 +296,7 @@ export default function App() {
         <BacktestSection />
 
         {/* ALGORITHMIC ADVANTAGES */}
-        <section className="bg-bg-secondary/40 py-20 lg:py-32 relative border-y border-white/5">
+        <section id="advantages" className="bg-bg-secondary/40 py-20 lg:py-32 relative border-y border-white/5">
           <div className="max-w-7xl mx-auto px-4 lg:px-6 relative z-10">
             <div className="text-center max-w-3xl mx-auto mb-12 lg:mb-20">
               <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl mb-4 lg:mb-6 tracking-tight text-white font-medium">ALGORITHMIC ADVANTAGES</h2>
@@ -322,7 +323,7 @@ export default function App() {
         </section>
 
         {/* 3D GOLD STANDARD SECTION (CAROUSEL) */}
-        <section className="py-20 lg:py-32 overflow-hidden relative">
+        <section id="standard" className="py-20 lg:py-32 overflow-hidden relative">
           <div className="max-w-7xl mx-auto px-4 lg:px-6 text-center mb-12 lg:mb-20 relative z-10">
             <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl mb-4 lg:mb-6 tracking-tight text-white font-medium">THE GOLD STANDARD</h2>
             <p className="text-text-secondary text-base lg:text-lg max-w-2xl mx-auto">
@@ -417,7 +418,7 @@ export default function App() {
         </section>
 
         {/* FINAL CTA SECTION */}
-        <section className="py-24 lg:py-40 relative overflow-hidden">
+        <section id="getstarted" className="py-24 lg:py-40 relative overflow-hidden">
           <div className="max-w-4xl mx-auto px-4 lg:px-6 text-center relative z-10 flex flex-col items-center">
             <h2 className="font-serif text-4xl md:text-5xl lg:text-7xl mb-6 lg:mb-8 tracking-tighter text-white font-medium">
               READY TO JOIN THE <span className="text-gradient-gold">TOP 1%?</span>
