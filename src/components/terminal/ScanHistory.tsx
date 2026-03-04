@@ -11,7 +11,8 @@ interface ScanRecord {
     entry_zone: number | string;
     stop_loss: number | string;
     take_profit: number | string;
-    confidence: string;
+    risk_to_reward: string;
+    confidence: number;
     created_at: string;
 }
 
@@ -85,14 +86,16 @@ export default function ScanHistory({ refreshTrigger = 0 }: { refreshTrigger?: n
                             <th className="pb-3 font-medium">Asset</th>
                             <th className="pb-3 font-medium">Bias</th>
                             <th className="pb-3 font-medium">Entry</th>
+                            <th className="pb-3 font-medium">SL</th>
                             <th className="pb-3 font-medium">Target</th>
-                            <th className="pb-3 font-medium text-right">Confidence</th>
+                            <th className="pb-3 font-medium">RR</th>
+                            <th className="pb-3 font-medium text-right">Conf</th>
                         </tr>
                     </thead>
                     <tbody className="text-[11px] md:text-xs">
                         {scans.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="py-8 text-center text-[#2B313A]">
+                                <td colSpan={8} className="py-8 text-center text-[#2B313A]">
                                     <div className="flex flex-col items-center gap-2">
                                         <ShieldAlert className="w-5 h-5" />
                                         <span>No historical records found.</span>
@@ -100,7 +103,7 @@ export default function ScanHistory({ refreshTrigger = 0 }: { refreshTrigger?: n
                                 </td>
                             </tr>
                         ) : (
-                            scans.map((scan) => (
+                            scans.slice(0, 10).map((scan) => (
                                 <tr key={scan.id} className="border-b border-[#1C2026]/50 last:border-0 hover:bg-[#1C2026]/30 transition-colors">
                                     <td className="py-3 text-[#86909C] whitespace-nowrap">
                                         <div className="flex flex-col">
@@ -119,9 +122,11 @@ export default function ScanHistory({ refreshTrigger = 0 }: { refreshTrigger?: n
                                         {scan.bias}
                                     </td>
                                     <td className="py-3 text-white font-mono">{scan.entry_zone}</td>
+                                    <td className="py-3 font-mono text-red-500">{scan.stop_loss}</td>
                                     <td className="py-3 font-mono text-[#00E676]">{scan.take_profit}</td>
+                                    <td className="py-3 font-mono text-[#C6A84F]">{scan.risk_to_reward || '-'}</td>
                                     <td className="py-3 text-right">
-                                        <span className={`px-2 py-0.5 rounded font-bold uppercase tracking-wider ${scan.confidence === 'HIGH' ? 'bg-[#C6A84F]/10 text-[#C6A84F]' : scan.confidence === 'MEDIUM' ? 'bg-blue-500/10 text-blue-400' : 'bg-[#2B313A] text-gray-400'}`}>
+                                        <span className={`px-2 py-0.5 rounded font-bold uppercase tracking-wider ${scan.confidence >= 70 ? 'bg-[#C6A84F]/10 text-[#C6A84F]' : scan.confidence >= 40 ? 'bg-blue-500/10 text-blue-400' : 'bg-[#2B313A] text-gray-400'}`}>
                                             {scan.confidence || 'N/A'}
                                         </span>
                                     </td>
