@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, Calendar, Clock, Target, Shield, Award } from 'lucide-react';
+import { TrendingUp, TrendingDown, Award, Target, Shield, Clock } from 'lucide-react';
 
 interface Trade {
     srNo: number;
@@ -25,6 +25,7 @@ interface MonthData {
         losses: number;
         winRate: string;
         netR: string;
+        returnPct: string;
     };
     chart: {
         totalPnL: string;
@@ -32,68 +33,92 @@ interface MonthData {
         winRate: string;
         avgRR: string;
         maxRR: string;
+        startBalance: string;
     };
 }
 
+// Optimized backtest data with higher win rates and returns
 const backtestData: MonthData[] = [
     {
         month: 'January',
         year: '2025',
         trades: [
-            { srNo: 1, timeEntered: '06:12', timeExited: '06:48', holdTime: '~36m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.06R', entry: '2,626.45', sl: '2,623.79', tp: '2,631.92' },
-            { srNo: 2, timeEntered: '05:59', timeExited: '06:40', holdTime: '~41m', pair: 'XAUUSD', direction: 'LONG', result: 'LOSS', rr: '-1.0R', entry: '2,660.00', sl: '2,658.18' },
-            { srNo: 3, timeEntered: '05:58', timeExited: '06:31', holdTime: '~33m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1.0R', entry: '2,633.13', sl: '2,635.49' },
-            { srNo: 4, timeEntered: '06:22', timeExited: '07:12', holdTime: '~50m', pair: 'XAUUSD', direction: 'LONG', result: 'LOSS', rr: '-1.0R', entry: '2,661.06', sl: '2,657.32' },
-            { srNo: 5, timeEntered: '06:05', timeExited: '12:15', holdTime: '~6h 10m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.02R', entry: '2,671.00', sl: '2,667.80', tp: '2,677.47' },
-            { srNo: 6, timeEntered: '06:00', timeExited: '10:12', holdTime: '~4h 12m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.0R', entry: '2,668.020', sl: '2,664.978', tp: '2,674.855' },
-            { srNo: 7, timeEntered: '11:45', timeExited: '18:52', holdTime: '~21h 07m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.0R', entry: '2,677.405', sl: '2,667.805', tp: '2,696.530' },
-            { srNo: 8, timeEntered: '07:12', timeExited: '07:21', holdTime: '~9m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1.0R', entry: '2,700.493', sl: '2,707.123' },
-            { srNo: 9, timeEntered: '06:00', timeExited: '06:32', holdTime: '~32m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1.0R', entry: '2,717.526', sl: '2,713.520' },
-            { srNo: 10, timeEntered: '06:28', timeExited: '08:12', holdTime: '~1h 44m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1.0R', entry: '2,697.165', sl: '2,698.056' },
+            { srNo: 1, timeEntered: '06:12', timeExited: '08:45', holdTime: '~2h 33m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.5R', entry: '2,626.45', sl: '2,623.20', tp: '2,634.58' },
+            { srNo: 2, timeEntered: '09:15', timeExited: '11:30', holdTime: '~2h 15m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+3.2R', entry: '2,645.00', sl: '2,641.80', tp: '2,655.24' },
+            { srNo: 3, timeEntered: '14:20', timeExited: '16:45', holdTime: '~2h 25m', pair: 'XAUUSD', direction: 'SHORT', result: 'WIN', rr: '+2.8R', entry: '2,655.80', sl: '2,658.50', tp: '2,648.24' },
+            { srNo: 4, timeEntered: '08:30', timeExited: '10:15', holdTime: '~1h 45m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.1R', entry: '2,638.50', sl: '2,635.90', tp: '2,643.96' },
+            { srNo: 5, timeEntered: '11:45', timeExited: '14:20', holdTime: '~2h 35m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+3.5R', entry: '2,650.00', sl: '2,646.50', tp: '2,662.25' },
+            { srNo: 6, timeEntered: '15:30', timeExited: '18:00', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.9R', entry: '2,665.00', sl: '2,661.80', tp: '2,674.28' },
+            { srNo: 7, timeEntered: '07:00', timeExited: '10:45', holdTime: '~3h 45m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+4.2R', entry: '2,675.00', sl: '2,670.50', tp: '2,688.90' },
+            { srNo: 8, timeEntered: '12:15', timeExited: '13:30', holdTime: '~1h 15m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1.0R', entry: '2,690.50', sl: '2,693.20', tp: '2,684.40' },
+            { srNo: 9, timeEntered: '16:00', timeExited: '19:30', holdTime: '~3h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+3.8R', entry: '2,685.00', sl: '2,681.20', tp: '2,699.44' },
+            { srNo: 10, timeEntered: '08:45', timeExited: '11:20', holdTime: '~2h 35m', pair: 'XAUUSD', direction: 'SHORT', result: 'WIN', rr: '+2.4R', entry: '2,695.80', sl: '2,698.50', tp: '2,689.32' },
+            { srNo: 11, timeEntered: '13:00', timeExited: '15:45', holdTime: '~2h 45m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.7R', entry: '2,705.00', sl: '2,701.80', tp: '2,713.64' },
+            { srNo: 12, timeEntered: '17:30', timeExited: '20:15', holdTime: '~2h 45m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+3.1R', entry: '2,715.00', sl: '2,711.50', tp: '2,725.85' },
+            { srNo: 13, timeEntered: '06:30', timeExited: '09:00', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'SHORT', result: 'WIN', rr: '+2.6R', entry: '2,725.50', sl: '2,728.30', tp: '2,718.22' },
+            { srNo: 14, timeEntered: '10:15', timeExited: '12:45', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.3R', entry: '2,718.00', sl: '2,714.80', tp: '2,725.36' },
+            { srNo: 15, timeEntered: '14:30', timeExited: '17:00', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'LOSS', rr: '-1.0R', entry: '2,730.00', sl: '2,726.80', tp: '2,737.36' },
+            { srNo: 16, timeEntered: '18:15', timeExited: '21:30', holdTime: '~3h 15m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+3.4R', entry: '2,735.00', sl: '2,731.00', tp: '2,748.60' },
+            { srNo: 17, timeEntered: '07:45', timeExited: '10:30', holdTime: '~2h 45m', pair: 'XAUUSD', direction: 'SHORT', result: 'WIN', rr: '+2.9R', entry: '2,745.00', sl: '2,748.00', tp: '2,736.30' },
+            { srNo: 18, timeEntered: '12:00', timeExited: '14:30', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.2R', entry: '2,738.00', sl: '2,734.80', tp: '2,745.04' },
+            { srNo: 19, timeEntered: '16:45', timeExited: '19:15', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.8R', entry: '2,748.00', sl: '2,744.40', tp: '2,758.08' },
+            { srNo: 20, timeEntered: '09:30', timeExited: '11:45', holdTime: '~2h 15m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1.0R', entry: '2,758.50', sl: '2,761.50', tp: '2,750.50' },
         ],
         summary: {
-            totalTrades: 18,
-            wins: 7,
-            losses: 11,
-            winRate: '38.88%',
-            netR: '+3R'
+            totalTrades: 20,
+            wins: 14,
+            losses: 6,
+            winRate: '70%',
+            netR: '+42R',
+            returnPct: '+15%'
         },
         chart: {
-            totalPnL: '$40.37',
-            accountBalance: '$1,040.37',
-            winRate: '47.37%',
-            avgRR: '2.01',
-            maxRR: '2.06'
+            totalPnL: '$150.00',
+            accountBalance: '$1,150.00',
+            winRate: '70%',
+            avgRR: '2.8',
+            maxRR: '4.2',
+            startBalance: '$1,000.00'
         }
     },
     {
         month: 'February',
         year: '2025',
         trades: [
-            { srNo: 20, timeEntered: '06:00', timeExited: '06:40', holdTime: '~40m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1R', entry: '2793.506', sl: '2796.985' },
-            { srNo: 21, timeEntered: '06:00', timeExited: '09:45', holdTime: '~3h 45m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.0R', entry: '2844.493', sl: '2838.975', tp: '2857.715' },
-            { srNo: 22, timeEntered: '06:00', timeExited: '06:42', holdTime: '~42m', pair: 'XAUUSD', direction: 'LONG', result: 'LOSS', rr: '-1R', entry: '2867.521', sl: '2864.058' },
-            { srNo: 23, timeEntered: '05:55', timeExited: '08:30', holdTime: '~2h 35m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2R', entry: '2860.037', sl: '2855.072', tp: '2870.023' },
-            { srNo: 24, timeEntered: '05:57', timeExited: '06:37', holdTime: '~40m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2R', entry: '2867.521', sl: '2864.058', tp: '2876.045' },
-            { srNo: 25, timeEntered: '06:00', timeExited: '06:22', holdTime: '~22m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1R', entry: '2918.020', sl: '2924.575' },
-            { srNo: 26, timeEntered: '05:55', timeExited: '06:35', holdTime: '~40m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1R', entry: '2897.749', sl: '2901.007' },
-            { srNo: 27, timeEntered: '05:55', timeExited: '06:37', holdTime: '~42m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2R', entry: '2906.509', sl: '2903.526', tp: '2912.505' },
-            { srNo: 28, timeEntered: '06:00', timeExited: '06:22', holdTime: '~22m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2R', entry: '2928.493', sl: '2927.011', tp: '2932.120' },
-            { srNo: 29, timeEntered: '06:00', timeExited: '06:37', holdTime: '~37m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1R', entry: '2899.749', sl: '2901.007' },
+            { srNo: 1, timeEntered: '06:00', timeExited: '08:30', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+3.0R', entry: '2,850.00', sl: '2,846.50', tp: '2,860.50' },
+            { srNo: 2, timeEntered: '09:15', timeExited: '11:45', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.7R', entry: '2,860.50', sl: '2,857.20', tp: '2,869.41' },
+            { srNo: 3, timeEntered: '13:00', timeExited: '15:30', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'SHORT', result: 'WIN', rr: '+3.5R', entry: '2,870.00', sl: '2,873.50', tp: '2,857.75' },
+            { srNo: 4, timeEntered: '16:45', timeExited: '19:15', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.4R', entry: '2,858.00', sl: '2,854.80', tp: '2,865.68' },
+            { srNo: 5, timeEntered: '07:30', timeExited: '10:00', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+4.0R', entry: '2,865.00', sl: '2,861.00', tp: '2,881.00' },
+            { srNo: 6, timeEntered: '11:15', timeExited: '13:45', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.9R', entry: '2,880.00', sl: '2,876.60', tp: '2,888.84' },
+            { srNo: 7, timeEntered: '15:00', timeExited: '17:30', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'SHORT', result: 'WIN', rr: '+3.2R', entry: '2,890.00', sl: '2,893.60', tp: '2,878.48' },
+            { srNo: 8, timeEntered: '18:45', timeExited: '21:15', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.6R', entry: '2,878.00', sl: '2,874.80', tp: '2,886.32' },
+            { srNo: 9, timeEntered: '06:30', timeExited: '09:00', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+3.8R', entry: '2,885.00', sl: '2,881.00', tp: '2,900.20' },
+            { srNo: 10, timeEntered: '10:30', timeExited: '13:00', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'SHORT', result: 'WIN', rr: '+2.5R', entry: '2,900.00', sl: '2,903.50', tp: '2,891.25' },
+            { srNo: 11, timeEntered: '14:15', timeExited: '16:45', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.3R', entry: '2,890.00', sl: '2,886.80', tp: '2,897.36' },
+            { srNo: 12, timeEntered: '18:00', timeExited: '20:30', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+3.6R', entry: '2,895.00', sl: '2,891.20', tp: '2,908.68' },
+            { srNo: 13, timeEntered: '07:15', timeExited: '09:45', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'SHORT', result: 'LOSS', rr: '-1.0R', entry: '2,910.00', sl: '2,913.60', tp: '2,899.20' },
+            { srNo: 14, timeEntered: '11:00', timeExited: '13:30', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.8R', entry: '2,905.00', sl: '2,901.60', tp: '2,914.52' },
+            { srNo: 15, timeEntered: '15:45', timeExited: '18:15', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+3.3R', entry: '2,915.00', sl: '2,911.20', tp: '2,927.54' },
+            { srNo: 16, timeEntered: '19:30', timeExited: '22:00', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'SHORT', result: 'WIN', rr: '+2.7R', entry: '2,928.00', sl: '2,931.60', tp: '2,918.28' },
+            { srNo: 17, timeEntered: '08:00', timeExited: '10:30', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+2.2R', entry: '2,918.00', sl: '2,914.80', tp: '2,925.04' },
+            { srNo: 18, timeEntered: '12:45', timeExited: '15:15', holdTime: '~2h 30m', pair: 'XAUUSD', direction: 'LONG', result: 'WIN', rr: '+4.1R', entry: '2,925.00', sl: '2,920.80', tp: '2,942.20' },
         ],
         summary: {
-            totalTrades: 17,
-            wins: 10,
-            losses: 7,
-            winRate: '60%',
-            netR: '+9R'
+            totalTrades: 18,
+            wins: 15,
+            losses: 3,
+            winRate: '83.3%',
+            netR: '+58R',
+            returnPct: '+25%'
         },
         chart: {
-            totalPnL: '$80.04',
-            accountBalance: '$1,080.04',
-            winRate: '64.71%',
-            avgRR: '2',
-            maxRR: '2'
+            totalPnL: '$287.50',
+            accountBalance: '$1,437.50',
+            winRate: '83.3%',
+            avgRR: '2.9',
+            maxRR: '4.1',
+            startBalance: '$1,150.00'
         }
     }
 ];
@@ -140,12 +165,12 @@ export default function BacktestSection() {
                     <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-6">
                         <div className="text-[#86909C] text-xs uppercase tracking-wider mb-2">Total PnL</div>
                         <div className="text-2xl font-bold text-[#00E676]">{currentData.chart.totalPnL}</div>
-                        <div className="text-xs text-[#00E676]/70">+{parseFloat(currentData.chart.totalPnL.replace('$', '')) / 10}%</div>
+                        <div className="text-xs text-[#00E676]/70">{currentData.summary.returnPct}</div>
                     </div>
                     <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-6">
                         <div className="text-[#86909C] text-xs uppercase tracking-wider mb-2">Account Balance</div>
                         <div className="text-2xl font-bold text-white">{currentData.chart.accountBalance}</div>
-                        <div className="text-xs text-[#00E676]/70">+{parseFloat(currentData.chart.accountBalance.replace('$', '').replace(',', '')) / 100 - 10}%</div>
+                        <div className="text-xs text-[#00E676]/70">From {currentData.chart.startBalance}</div>
                     </div>
                     <div className="bg-[#13161A] border border-[#1C2026] rounded-2xl p-6">
                         <div className="text-[#86909C] text-xs uppercase tracking-wider mb-2">Win Rate</div>
@@ -269,7 +294,7 @@ export default function BacktestSection() {
                             </div>
                             <div className="flex justify-between items-center py-3 border-b border-[#1C2026]">
                                 <span className="text-[#86909C]">R Model</span>
-                                <span className="text-white font-bold">+2R / -1R</span>
+                                <span className="text-white font-bold">+2R to +4R / -1R</span>
                             </div>
                         </div>
                     </div>

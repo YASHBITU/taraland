@@ -1,0 +1,10 @@
+﻿cc91b3d HEAD@{0} reset: moving to HEAD
+cc91b3d HEAD@{1} commit: Restore manual Vision Engine and add dual launch buttons
+e5fe13f HEAD@{2} commit: Completely rewrite Engine UI into premium dark mode Dashboard using Recharts and Python logic
+5a522f0 HEAD@{3} commit: Fix state caching retaining old screenshots on new launch
+673f9a5 HEAD@{4} commit: Update models to include THUDM vision for images and keep DeepSeek for texts
+a6a9085 HEAD@{5} commit: Enforce strict deepseek R1 model without fallback and optimize text-only payloads
+fea9636 HEAD@{6} commit: Add Institutional Analytical Engine using SiliconFlow API
+e04e026 HEAD@{7} commit: Add institutional gold trading favicon
+4b0b6ac HEAD@{8} commit: Complete Vercel-ready refactor with live data and institutional UI
+2a43c4d HEAD@{9} clone: from https://github.com/YASHBITU/tarapro

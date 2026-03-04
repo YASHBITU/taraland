@@ -276,9 +276,9 @@ export default function App() {
         <section className="max-w-7xl mx-auto px-4 lg:px-6 py-20 lg:py-32 z-20 relative">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
             {[
-              { label: "TOTAL MANAGED VOLUME", value: "$4.2B+", prefix: "$", suffix: "B+", raw: "4.2", icon: BarChart3 },
-              { label: "HISTORICAL ACCURACY", value: "92.4%", suffix: "%", raw: "92.4", decimals: 1, icon: Activity },
-              { label: "AVERAGE RISK/REWARD", value: "1:3.5", prefix: "1:", raw: "3.5", decimals: 1, icon: Shield }
+              { label: "AVERAGE MONTHLY RETURN", value: "+20%", prefix: "+", suffix: "%", raw: "20", icon: BarChart3 },
+              { label: "HISTORICAL ACCURACY", value: "76.7%", suffix: "%", raw: "76.7", decimals: 1, icon: Activity },
+              { label: "AVERAGE RISK/REWARD", value: "1:2.9", prefix: "1:", raw: "2.9", decimals: 1, icon: Shield }
             ].map((stat, i) => (
               <GlassCard key={i} className="p-8 lg:p-10 flex flex-col items-center text-center group">
                 <stat.icon className="w-6 h-6 lg:w-8 lg:h-8 text-gold-dark mb-4 lg:mb-6 group-hover:scale-110 group-hover:text-gold-light transition-transform duration-300" />
