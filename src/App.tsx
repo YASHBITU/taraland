@@ -9,6 +9,7 @@ import { TerminalChart } from './components/terminal/TerminalChart';
 import { MarketTicker } from './components/terminal/MarketTicker';
 import Engine from './components/terminal/Engine';
 import VisionEngine from './components/terminal/VisionEngine';
+import BacktestSection from './components/sections/BacktestSection';
 
 export default function App() {
   const { assets, pulse } = useMarketData();
@@ -289,6 +290,9 @@ export default function App() {
             ))}
           </div>
         </section>
+
+        {/* BACKTEST SECTION */}
+        <BacktestSection />
 
         {/* ALGORITHMIC ADVANTAGES */}
         <section className="bg-bg-secondary/40 py-20 lg:py-32 relative border-y border-white/5">
