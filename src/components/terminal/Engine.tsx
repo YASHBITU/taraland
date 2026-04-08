@@ -5,13 +5,13 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import ScanHistory from './ScanHistory';
 
 
-// Models
+// Models - Working models only
 const ANALYST_MODELS = [
-    "Qwen/Qwen3-8B",
-    "THUDM/glm-4-9b-chat",
-    "THUDM/GLM-4-9B-0414"
+    "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
+    "THUDM/GLM-4-9B-0414",
+    "THUDM/GLM-4.1V-9B-Thinking"
 ];
-const JUDGE_MODEL = "Qwen/Qwen2.5-7B-Instruct";
+const JUDGE_MODEL = "THUDM/GLM-Z1-9B-0414";
 
 
 
